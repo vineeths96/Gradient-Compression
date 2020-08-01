@@ -136,6 +136,7 @@ dmypy.json
 
 # Input
 .ipynb_checkpoints/
+data/
 
 # Idea
 .idea/

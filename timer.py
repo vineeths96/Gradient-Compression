@@ -6,8 +6,6 @@ from io import StringIO
 import numpy as np
 import torch
 
-NS = 1.0 / 1_000_000_000  # 1[ns] in [s]
-
 
 class Timer:
     """
@@ -21,10 +19,11 @@ class Timer:
     ... print(timer.summary())
     """
 
-    def __init__(self, verbosity_level=1, log_fn=None, skip_first=True):
+    def __init__(self, verbosity_level=1, log_fn=None, skip_first=True, on_cuda=True):
         self.verbosity_level = verbosity_level
         self.log_fn = log_fn if log_fn is not None else self._default_log_fn
         self.skip_first = skip_first
+        self.cuda_available = torch.cuda.is_available() and on_cuda
 
         self.reset()
 
@@ -44,22 +43,22 @@ class Timer:
 
         # Measure the time
         self._cuda_sync()
-        start = time.time_ns() * NS
+        start = time.time()
         yield
         self._cuda_sync()
-        end = time.time_ns() * NS
+        end = time.time()
 
         # Update first and last occurrence of this label
-        if not label in self.first_time:
+        if label not in self.first_time:
             self.first_time[label] = start
         self.last_time[label] = end
 
         # Update the totals and call counts
-        if not label in self.totals and self.skip_first:
+        if label not in self.totals and self.skip_first:
             self.totals[label] = 0.0
             del self.first_time[label]
             self.call_counts[label] = 0
-        elif not label in self.totals and not self.skip_first:
+        elif label not in self.totals and not self.skip_first:
             self.totals[label] = end - start
             self.call_counts[label] = 1
         else:
@@ -67,35 +66,48 @@ class Timer:
             self.call_counts[label] += 1
 
         if self.call_counts[label] > 0:
-            # We will reduce the probability of logging a timing linearly with the number of times
-            # we have seen it.
-            # It will always be recorded in the totals, though
+            # We will reduce the probability of logging a timing
+            # linearly with the number of time we have seen it.
+            # It will always be recorded in the totals, though.
             if np.random.rand() < 1 / self.call_counts[label]:
                 self.log_fn(
-                    "Timer", {"epoch": float(epoch), "value": end - start}, {"event": label}
+                    "timer", {"epoch": epoch, "value": end - start}, {"event": label}
                 )
 
     def summary(self):
         """
         Return a summary in string-form of all the timings recorded so far
         """
-        with StringIO() as buffer:
-            print("--- Timer summary -----------------------------------------------", file=buffer)
-            print("  Event                          |  Count | Average time |  Frac.", file=buffer)
-            for event_label in sorted(self.totals):
-                total = self.totals[event_label]
-                count = self.call_counts[event_label]
-                if count == 0:
-                    continue
-                avg_duration = total / count
-                total_runtime = self.last_time[event_label] - self.first_time[event_label]
-                runtime_percentage = 100 * total / total_runtime
+        if len(self.totals) > 0:
+            with StringIO() as buffer:
+                #total_avg_time = 0
+                total_time = 0
+                print("--- Timer summary -----------------------------------------------", file=buffer)
+                print("  Event                          |  Count | Average time |  Frac.", file=buffer)
+                for event_label in sorted(self.totals):
+                    total = self.totals[event_label]
+                    count = self.call_counts[event_label]
+                    if count == 0:
+                        continue
+                    avg_duration = total / count
+                    total_runtime = (
+                        self.last_time[event_label] - self.first_time[event_label]
+                    )
+                    runtime_percentage = 100 * total / total_runtime
+                    #total_avg_time += avg_duration if "." not in event_label else 0
+                    total_time += total if event_label == "batch" else 0
+                    print(
+                        f"- {event_label:30s} | {count:6d} | {avg_duration:11.5f}s | {runtime_percentage:5.1f}%",
+                        file=buffer,
+                    )
+                print("-----------------------------------------------------------------", file=buffer)
+                event_label = "total_averaged_time"
                 print(
-                    f"- {event_label:30s} | {count:6d} | {avg_duration:11.5f}s | {runtime_percentage:5.1f}%",
+                    f"- {event_label:30s} | {count:6d} | {total_time:11.5f}s |",
                     file=buffer,
                 )
-            print("-----------------------------------------------------------------", file=buffer)
-            return buffer.getvalue()
+                print("-----------------------------------------------------------------", file=buffer)
+                return buffer.getvalue()
 
     def save_summary(self, json_file_path):
         data = {}

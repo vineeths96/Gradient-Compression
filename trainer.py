@@ -15,13 +15,15 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=350,
+    #num_epochs=350,
+    num_epochs=5,
     batch_size=128,
-    architecture="ResNet50",
+    #architecture="ResNet50",
+    architecture="LeNet",
     seed=42,
     log_verbosity=2,
-    #lr=0.01,
-    lr=0.05,
+    lr=0.01,
+    #lr=0.05,
 )
 
 
@@ -68,9 +70,10 @@ if __name__ == '__main__':
     timer = Timer(verbosity_level=config["log_verbosity"], log_fn=log_info)
 
     # reducer = NoneReducer(device, timer)
+    reducer = NoneAllReducer(device, timer)
     # reducer = QSGDReducer(device, timer, quantization_level=8)
-    reducer = QSGDWECModReducer(device, timer, quantization_level=8)
-    # reducer = NoneAllReducer(device, timer)
+    # reducer = QSGDWECModReducer(device, timer, quantization_level=8)
+    # reducer = TernGradModReducer(device, timer)
 
     lr = config['lr']
     bits_communicated = 0
@@ -85,9 +88,9 @@ if __name__ == '__main__':
         if 0 <= epoch < 150:
             lr = lr
         elif 150 <= epoch < 250:
-             lr = lr * 0.1
+            lr = lr * 0.1
         elif 250 <= epoch <= 350:
-           lr = lr * 0.01
+            lr = lr * 0.01
         else:
             lr = 0.0001
 
@@ -99,16 +102,16 @@ if __name__ == '__main__':
                 _, grads, metrics = model.batch_loss_with_gradients(batch)
                 epoch_metrics.add(metrics)
 
-            with timer("batch.accumulate", epoch_frac, verbosity=2):
-                for grad, send_buffer in zip(grads, send_buffers):
-                    send_buffer[:] = grad
+                with timer("batch.accumulate", epoch_frac, verbosity=2):
+                    for grad, send_buffer in zip(grads, send_buffers):
+                        send_buffer[:] = grad
 
-            with timer("batch.reduce", epoch_frac):
-                bits_communicated += reducer.reduce(send_buffers, grads)
+                with timer("batch.reduce", epoch_frac):
+                    bits_communicated += reducer.reduce(send_buffers, grads)
 
-            with timer("batch.step", epoch_frac, verbosity=2):
-                for param, grad in zip(model.parameters, grads):
-                    param.data.add_(other=grad, alpha=-lr)
+                with timer("batch.step", epoch_frac, verbosity=2):
+                    for param, grad in zip(model.parameters, grads):
+                        param.data.add_(other=grad, alpha=-lr)
 
         with timer("epoch_metrics.collect", epoch, verbosity=2):
             epoch_metrics.reduce()

@@ -2,7 +2,7 @@ import torch
 import torch.distributed
 from compressors import (
     NoneCompressor, QSGDCompressor, QSGDWECCompressor,
-    QSGDWECModCompressor, TernGradCompressor
+    QSGDWECModCompressor, TernGradCompressor, TernGradModCompressor
 )
 
 

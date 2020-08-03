@@ -80,7 +80,7 @@ class Timer:
         """
         if len(self.totals) > 0:
             with StringIO() as buffer:
-                #total_avg_time = 0
+                # total_avg_time = 0
                 total_time = 0
                 print("--- Timer summary -----------------------------------------------", file=buffer)
                 print("  Event                          |  Count | Average time |  Frac.", file=buffer)
@@ -94,14 +94,14 @@ class Timer:
                         self.last_time[event_label] - self.first_time[event_label]
                     )
                     runtime_percentage = 100 * total / total_runtime
-                    #total_avg_time += avg_duration if "." not in event_label else 0
+                    # total_avg_time += avg_duration if "." not in event_label else 0
                     total_time += total if event_label == "batch" else 0
                     print(
                         f"- {event_label:30s} | {count:6d} | {avg_duration:11.5f}s | {runtime_percentage:5.1f}%",
                         file=buffer,
                     )
                 print("-----------------------------------------------------------------", file=buffer)
-                event_label = "total_averaged_time"
+                event_label = "total_time"
                 print(
                     f"- {event_label:30s} | {count:6d} | {total_time:11.5f}s |",
                     file=buffer,

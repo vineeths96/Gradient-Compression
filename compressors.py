@@ -160,7 +160,7 @@ class QSGDWECCompressor:
 
         mask = torch.bernoulli(prob_array)
         xi_array = l_array_floored + mask
-        xi_array = xi_array.to(dtype=torch.int8)
+        xi_array = xi_array.to(dtype=torch.int32)
 
         return norm, sign_array, xi_array
 
@@ -188,7 +188,7 @@ class QSGDWECModCompressor:
 
         mask = torch.bernoulli(prob_array)
         xi_array = l_array_floored + mask
-        xi_array = xi_array.to(dtype=torch.int8)
+        xi_array = xi_array.to(dtype=torch.int32)
 
         sign_xi_array = sign_array * xi_array
 

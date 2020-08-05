@@ -15,15 +15,12 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    #num_epochs=350,
-    num_epochs=5,
+    num_epochs=350,
     batch_size=128,
-    #architecture="ResNet50",
-    architecture="LeNet",
+    architecture="ResNet50",
     seed=42,
     log_verbosity=2,
     lr=0.01,
-    #lr=0.05,
 )
 
 
@@ -70,9 +67,9 @@ if __name__ == '__main__':
     timer = Timer(verbosity_level=config["log_verbosity"], log_fn=log_info)
 
     # reducer = NoneReducer(device, timer)
-    reducer = NoneAllReducer(device, timer)
+    # reducer = NoneAllReducer(device, timer)
     # reducer = QSGDReducer(device, timer, quantization_level=8)
-    # reducer = QSGDWECModReducer(device, timer, quantization_level=8)
+    reducer = QSGDWECModReducer(device, timer, quantization_level=8)
     # reducer = TernGradModReducer(device, timer)
 
     lr = config['lr']

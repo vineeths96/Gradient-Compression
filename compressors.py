@@ -61,6 +61,7 @@ class QSGDCompressor:
         mask = torch.bernoulli(prob_array).to(torch.int)
         xi_array = l_array_floored + mask
 
+        norm = norm / s
         code = ""
         code += self.float_to_bin(norm)
 
@@ -168,6 +169,8 @@ class QSGDWECCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
+        norm = norm / s
+
         return norm, sign_array, xi_array
 
     def decompress(self, norm, sign_array, xi_array):
@@ -202,6 +205,8 @@ class QSGDWECModCompressor:
 
         sign_xi_array = sign_array * xi_array
 
+        norm = norm / s
+        
         return norm, sign_xi_array
 
     def decompress(self, norm, sign_xi_array):

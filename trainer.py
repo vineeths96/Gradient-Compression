@@ -7,7 +7,8 @@ import torch.distributed as dist
 from model_dispatcher import CIFAR
 from reducer import (
     NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer, TernGradReducer,
-    QSGDWECModReducer, TernGradReducer, TernGradModReducer
+    QSGDWECModReducer, TernGradReducer, TernGradModReducer, QSGDWECMod2Reducer,
+    QSGDWECMod3Reducer, QSGDBPReducer
 )
 from timer import Timer
 from metrics import AverageMeter
@@ -15,9 +16,11 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=350,
+    #num_epochs=350,
+    num_epochs=5,
     batch_size=128,
-    architecture="ResNet50",
+    #architecture="ResNet50",
+    architecture="LeNet",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -70,6 +73,9 @@ if __name__ == '__main__':
     # reducer = NoneAllReducer(device, timer)
     # reducer = QSGDReducer(device, timer, quantization_level=8)
     reducer = QSGDWECModReducer(device, timer, quantization_level=8)
+    # reducer = QSGDWECMod2Reducer(device, timer, quantization_level=8)
+    # reducer = QSGDWECMod3Reducer(device, timer, quantization_level=8)
+    # reducer = QSGDBPReducer(device, timer, quantization_level=8)
     # reducer = TernGradModReducer(device, timer)
 
     lr = config['lr']

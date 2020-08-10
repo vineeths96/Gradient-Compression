@@ -91,7 +91,7 @@ class Timer:
                         continue
                     avg_duration = total / count
                     total_runtime = (
-                        self.last_time[event_label] - self.first_time[event_label]
+                            self.last_time[event_label] - self.first_time[event_label]
                     )
                     runtime_percentage = 100 * total / total_runtime
                     # total_avg_time += avg_duration if "." not in event_label else 0

@@ -2,11 +2,16 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, DistributedSampler
+
 import models
 from metrics import AverageMeter
 
 
 class CIFAR:
+    """
+    Instantiates a deep model of the specified architecture on the specified device.
+    """
+
     def __init__(self, device, timer, architecture, seed):
         self._device = device
         self._timer = timer
@@ -28,10 +33,10 @@ class CIFAR:
         std_dev = (0.247, 0.243, 0.261)
 
         transform_train = transforms.Compose([
-                transforms.RandomCrop(32, padding=4),
-                transforms.RandomHorizontalFlip(),
-                transforms.ToTensor(),
-                transforms.Normalize(mean, std_dev)
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize(mean, std_dev)
         ])
 
         transform_test = transforms.Compose([
@@ -39,8 +44,14 @@ class CIFAR:
             transforms.Normalize(mean, std_dev),
         ])
 
-        train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform_train)
-        test_set = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform_test)
+        train_set = torchvision.datasets.CIFAR10(root=data_path,
+                                                 train=True,
+                                                 download=True,
+                                                 transform=transform_train)
+        test_set = torchvision.datasets.CIFAR10(root=data_path,
+                                                train=False,
+                                                download=True,
+                                                transform=transform_test)
 
         return train_set, test_set
 
@@ -56,8 +67,12 @@ class CIFAR:
         train_sampler = DistributedSampler(dataset=self._train_set)
         train_sampler.set_epoch(self._epoch)
 
-        train_loader = DataLoader(dataset=self._train_set, batch_size=batch_size, sampler=train_sampler, pin_memory=True,
-                                  drop_last=True, num_workers=2)
+        train_loader = DataLoader(dataset=self._train_set,
+                                  batch_size=batch_size,
+                                  sampler=train_sampler,
+                                  pin_memory=True,
+                                  drop_last=True,
+                                  num_workers=2)
 
         self.len_train_loader = len(train_loader)
 
@@ -72,8 +87,12 @@ class CIFAR:
     def test_dataloader(self, batch_size=32):
         test_sampler = DistributedSampler(dataset=self._test_set)
 
-        test_loader = DataLoader(dataset=self._test_set, batch_size=batch_size, sampler=test_sampler, pin_memory=True,
-                                 drop_last=True, num_workers=2)
+        test_loader = DataLoader(dataset=self._test_set,
+                                 batch_size=batch_size,
+                                 sampler=test_sampler,
+                                 pin_memory=True,
+                                 drop_last=True,
+                                 num_workers=2)
 
         self.len_test_loader = len(test_loader)
 
@@ -135,9 +154,9 @@ class CIFAR:
             top1_accuracy, top5_accuracy = accuracy(pred_labels, true_labels, topk=(1, 5))
 
         return {
-                "cross_entropy_loss": cross_entropy_loss.item(),
-                "top1_accuracy": top1_accuracy.item(),
-                "top5_accuracy": top5_accuracy.item()
+            "cross_entropy_loss": cross_entropy_loss.item(),
+            "top1_accuracy": top1_accuracy.item(),
+            "top5_accuracy": top5_accuracy.item()
         }
 
     def state_dict(self):

@@ -1,5 +1,6 @@
 import torch
 import torch.distributed
+
 from compressors import (
     NoneCompressor, QSGDCompressor, QSGDWECCompressor,
     QSGDWECModCompressor, TernGradCompressor, TernGradModCompressor
@@ -7,6 +8,10 @@ from compressors import (
 
 
 class Reducer:
+    """
+    Base class for Custom Reducers. All reducers derive from this class.
+    """
+
     def __init__(self, device, timer):
         if torch.distributed.is_available():
             self.n_workers = torch.distributed.get_world_size()
@@ -14,7 +19,7 @@ class Reducer:
         else:
             self.n_workers = 1
             self.rank = 0
-            
+
         self._device = device
         self._timer = timer
 
@@ -23,6 +28,10 @@ class Reducer:
 
 
 class TensorBuffer:
+    """
+    Class to flatten and deflatten the gradient vector.
+    """
+
     def __init__(self, tensors):
         indices = [0]
         for tensor in tensors:
@@ -44,6 +53,10 @@ class TensorBuffer:
 
 
 class NoneReducer(Reducer):
+    """
+    All gather reducer without any compressing.
+    """
+
     def __init__(self, device, timer):
         super(NoneReducer, self).__init__(device, timer)
 
@@ -59,8 +72,10 @@ class NoneReducer(Reducer):
 
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
-                collected_tensor_sizes = [torch.empty_like(compressed_tensor_size) for _ in range(self.n_workers)]
-                size_gather_op = torch.distributed.all_gather(collected_tensor_sizes, compressed_tensor_size,
+                collected_tensor_sizes = [torch.empty_like(compressed_tensor_size)
+                                          for _ in range(self.n_workers)]
+                size_gather_op = torch.distributed.all_gather(tensor_list=collected_tensor_sizes,
+                                                              tensor=compressed_tensor_size,
                                                               async_op=True)
                 size_gather_op.wait()
 
@@ -68,9 +83,10 @@ class NoneReducer(Reducer):
                 padded_compressed_tensors = torch.zeros(max_size, dtype=torch.int64, device=self._device)
                 padded_compressed_tensors[:compressed_tensor_size] = compressed_tensor
 
-                collected_tensors = [torch.zeros(max_size, dtype=torch.int64, device=self._device) for _ in
-                                     range(self.n_workers)]
-                tensor_gather_op = torch.distributed.all_gather(collected_tensors, padded_compressed_tensors,
+                collected_tensors = [torch.zeros(max_size, dtype=torch.int64, device=self._device)
+                                     for _ in range(self.n_workers)]
+                tensor_gather_op = torch.distributed.all_gather(tensor_list=collected_tensors,
+                                                                tensor=padded_compressed_tensors,
                                                                 async_op=True)
                 tensor_gather_op.wait()
             else:
@@ -103,6 +119,10 @@ class NoneReducer(Reducer):
 
 
 class NoneAllReducer(Reducer):
+    """
+    All reduce reducer without any compressing.
+    """
+
     def __init__(self, device, timer):
         super(NoneAllReducer, self).__init__(device, timer)
 
@@ -114,7 +134,8 @@ class NoneAllReducer(Reducer):
 
         with self._timer("reduce.allreduce", verbosity=2):
             if self.n_workers > 1:
-                tensor_reduce_op = torch.distributed.all_reduce(flat_grad.buffer, async_op=True)
+                tensor_reduce_op = torch.distributed.all_reduce(tensor=flat_grad.buffer,
+                                                                async_op=True)
                 tensor_reduce_op.wait()
             else:
                 flat_grad = flat_grad
@@ -136,6 +157,10 @@ class NoneAllReducer(Reducer):
 
 
 class QSGDReducer(Reducer):
+    """
+    All gather reducer with QSGD compression and Elias encoding.
+    """
+
     def __init__(self, device, timer, quantization_level=8):
         super(QSGDReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
@@ -152,16 +177,22 @@ class QSGDReducer(Reducer):
 
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
-                collected_tensor_sizes = [torch.empty_like(compressed_tensor_size) for _ in range(self.n_workers)]
-                size_gather_op = torch.distributed.all_gather(collected_tensor_sizes, compressed_tensor_size, async_op=True)
+                collected_tensor_sizes = [torch.empty_like(compressed_tensor_size)
+                                          for _ in range(self.n_workers)]
+                size_gather_op = torch.distributed.all_gather(tensor_list=collected_tensor_sizes,
+                                                              tensor=compressed_tensor_size,
+                                                              async_op=True)
                 size_gather_op.wait()
 
                 max_size = max(collected_tensor_sizes).item()
                 padded_compressed_tensors = torch.zeros(max_size, dtype=torch.int64, device=self._device)
                 padded_compressed_tensors[:compressed_tensor_size] = compressed_tensor
 
-                collected_tensors = [torch.zeros(max_size, dtype=torch.int64, device=self._device) for _ in range(self.n_workers)]
-                tensor_gather_op = torch.distributed.all_gather(collected_tensors, padded_compressed_tensors, async_op=True)
+                collected_tensors = [torch.zeros(max_size, dtype=torch.int64, device=self._device) \
+                                     for _ in range(self.n_workers)]
+                tensor_gather_op = torch.distributed.all_gather(tensor_list=collected_tensors,
+                                                                tensor=padded_compressed_tensors,
+                                                                async_op=True)
                 tensor_gather_op.wait()
             else:
                 collected_tensors = [compressed_tensor]
@@ -193,6 +224,11 @@ class QSGDReducer(Reducer):
 
 
 class QSGDWECReducer(Reducer):
+    """
+    All gather reducer with QSGD compression and without Elias encoding.
+    All gathers norms, sign array and xi vector.
+    """
+
     def __init__(self, device, timer, quantization_level=8):
         super(QSGDWECReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
@@ -210,13 +246,19 @@ class QSGDWECReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(collected_norms, norm, async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
+                                                               tensor=norm,
+                                                               async_op=True)
 
                 collected_signs = [torch.empty_like(sign_array) for _ in range(self.n_workers)]
-                signs_gather_op = torch.distributed.all_gather(collected_signs, sign_array, async_op=True)
+                signs_gather_op = torch.distributed.all_gather(tensor_list=collected_signs,
+                                                               tensor=sign_array,
+                                                               async_op=True)
 
                 collected_xis = [torch.empty_like(xi_array) for _ in range(self.n_workers)]
-                xi_gather_op = torch.distributed.all_gather(collected_xis, xi_array, async_op=True)
+                xi_gather_op = torch.distributed.all_gather(tensor_list=collected_xis,
+                                                            tensor=xi_array,
+                                                            async_op=True)
 
                 norms_gather_op.wait()
                 signs_gather_op.wait()
@@ -252,6 +294,11 @@ class QSGDWECReducer(Reducer):
 
 
 class QSGDWECModReducer(Reducer):
+    """
+    All gather reducer with QSGD compression and without Elias encoding.
+    All gathers norms, sign array * xi vector.
+    """
+
     def __init__(self, device, timer, quantization_level=8):
         super(QSGDWECModReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
@@ -269,10 +316,14 @@ class QSGDWECModReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(collected_norms, norm, async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
+                                                               tensor=norm,
+                                                               async_op=True)
 
                 collected_sign_xis = [torch.empty_like(sign_xi_array) for _ in range(self.n_workers)]
-                sign_xis_gather_op = torch.distributed.all_gather(collected_sign_xis, sign_xi_array, async_op=True)
+                sign_xis_gather_op = torch.distributed.all_gather(tensor_list=collected_sign_xis,
+                                                                  tensor=sign_xi_array,
+                                                                  async_op=True)
 
                 norms_gather_op.wait()
                 sign_xis_gather_op.wait()
@@ -306,6 +357,11 @@ class QSGDWECModReducer(Reducer):
 
 
 class TernGradReducer(Reducer):
+    """
+    All gather reducer with TernGrad compression.
+    All gathers norms, sign array and b vector.
+    """
+
     def __init__(self, device, timer):
         super(TernGradReducer, self).__init__(device, timer)
 
@@ -322,13 +378,19 @@ class TernGradReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_scalers = [torch.empty_like(scaler) for _ in range(self.n_workers)]
-                scaler_gather_op = torch.distributed.all_gather(collected_scalers, scaler, async_op=True)
+                scaler_gather_op = torch.distributed.all_gather(tensor_list=collected_scalers,
+                                                                tensor=scaler,
+                                                                async_op=True)
 
                 collected_signs = [torch.empty_like(sign_array) for _ in range(self.n_workers)]
-                signs_gather_op = torch.distributed.all_gather(collected_signs, sign_array, async_op=True)
+                signs_gather_op = torch.distributed.all_gather(tensor_list=collected_signs,
+                                                               tensor=sign_array,
+                                                               async_op=True)
 
                 collected_bs = [torch.empty_like(b_array) for _ in range(self.n_workers)]
-                b_gather_op = torch.distributed.all_gather(collected_bs, b_array, async_op=True)
+                b_gather_op = torch.distributed.all_gather(tensor_list=collected_bs,
+                                                           tensor=b_array,
+                                                           async_op=True)
 
                 scaler_gather_op.wait()
                 signs_gather_op.wait()
@@ -364,6 +426,11 @@ class TernGradReducer(Reducer):
 
 
 class TernGradModReducer(Reducer):
+    """
+    All gather reducer with TernGrad compression.
+    All gathers norms, sign array * xi vector.
+    """
+
     def __init__(self, device, timer):
         super(TernGradModReducer, self).__init__(device, timer)
 
@@ -380,10 +447,14 @@ class TernGradModReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_scalers = [torch.empty_like(scaler) for _ in range(self.n_workers)]
-                scaler_gather_op = torch.distributed.all_gather(collected_scalers, scaler, async_op=True)
+                scaler_gather_op = torch.distributed.all_gather(tensor_list=collected_scalers,
+                                                                tensor=scaler,
+                                                                async_op=True)
 
                 collected_sign_bs = [torch.empty_like(sign_b_array) for _ in range(self.n_workers)]
-                sign_bs_gather_op = torch.distributed.all_gather(collected_sign_bs, sign_b_array, async_op=True)
+                sign_bs_gather_op = torch.distributed.all_gather(tensor_list=collected_sign_bs,
+                                                                 tensor=sign_b_array,
+                                                                 async_op=True)
 
                 scaler_gather_op.wait()
                 sign_bs_gather_op.wait()

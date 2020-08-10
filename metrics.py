@@ -3,6 +3,10 @@ import torch.distributed
 
 
 class AverageMeter:
+    """
+    Averages the tracked values across all workers.
+    """
+
     def __init__(self, device):
         self._device = device
         self._average = {}
@@ -16,30 +20,23 @@ class AverageMeter:
 
         for key, value in metric_data.items():
             self._average[key] = value
-        """
-        if self._average is None:
-            self._average = dict()
-            for key, value in metric_data.items():
-                self._average[key] = value
-        else:
-            for key, value in metric_data.items():
-                alpha = 1 / self._counter
-                self._average[key] = (1 - alpha) * self._average[key] + alpha * value
-        """
 
     def reduce(self):
         if not torch.distributed.is_available():
             return
 
         total_count = torch.tensor(self._counter, dtype=torch.int32, device=self._device)
-        count_reduce_op = torch.distributed.all_reduce(total_count, async_op=True)
+        count_reduce_op = torch.distributed.all_reduce(tensor=total_count,
+                                                       async_op=True)
         count_reduce_op.wait()
 
         for key in self._average:
             tensor = torch.tensor(self._average[key], dtype=torch.float16, device=self._device)
             tensor.mul_(self._counter)
-            reduce_op = torch.distributed.all_reduce(tensor, async_op=True)
+            reduce_op = torch.distributed.all_reduce(tensor=tensor,
+                                                     async_op=True)
             reduce_op.wait()
+
             self._average[key] = (tensor / total_count).item()
 
         self._counter = total_count.item()

@@ -16,10 +16,8 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    #num_epochs=350,
     num_epochs=5,
     batch_size=128,
-    #architecture="ResNet50",
     architecture="LeNet",
     seed=42,
     log_verbosity=2,
@@ -55,32 +53,24 @@ def initiate_distributed():
           + f"WORLD_SIZE = {dist.get_world_size()}" + f", backend={dist.get_backend()}")
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--local_rank', type=int, default=0)
-    parser.add_argument('--local_world_size', type=int, default=1)
-    args = parser.parse_args()
-    local_rank = args.local_rank
+def train(local_rank):
+    torch.manual_seed(config["seed"] + local_rank)
+    np.random.seed(config["seed"] + local_rank)
 
-    initiate_distributed()
-    torch.manual_seed(config["seed"] + args.local_rank)
-    np.random.seed(config["seed"] + args.local_rank)
-
-    device = torch.device(f'cuda:{args.local_rank}')
+    device = torch.device(f'cuda:{local_rank}')
     timer = Timer(verbosity_level=config["log_verbosity"], log_fn=log_info)
 
-    # reducer = NoneReducer(device, timer)
+    reducer = NoneReducer(device, timer)
     # reducer = NoneAllReducer(device, timer)
     # reducer = QSGDReducer(device, timer, quantization_level=8)
-    reducer = QSGDWECModReducer(device, timer, quantization_level=8)
-    # reducer = QSGDWECMod2Reducer(device, timer, quantization_level=8)
-    # reducer = QSGDWECMod3Reducer(device, timer, quantization_level=8)
-    # reducer = QSGDBPReducer(device, timer, quantization_level=8)
+    # reducer = QSGDWECReducer(device, timer, quantization_level=8)
+    # reducer = QSGDWECModReducer(device, timer, quantization_level=8)
+    # reducer = TernGradReducer(device, timer)
     # reducer = TernGradModReducer(device, timer)
 
     lr = config['lr']
     bits_communicated = 0
-    model = CIFAR(device, timer, config['architecture'], config['seed'] + args.local_rank)
+    model = CIFAR(device, timer, config['architecture'], config['seed'] + local_rank)
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
@@ -139,3 +129,15 @@ if __name__ == '__main__':
     if local_rank == 0:
         print(timer.summary())
         timer.save_summary(os.path.join("timer_summary.json"))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--local_rank', type=int, default=0)
+    parser.add_argument('--local_world_size', type=int, default=1)
+    args = parser.parse_args()
+    local_rank = args.local_rank
+
+    initiate_distributed()
+    train(local_rank)
+

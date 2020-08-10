@@ -4,6 +4,9 @@ import numpy as np
 
 
 class NoneCompressor:
+    """
+    No compression.
+    """
     def __init__(self, device):
         self._device = device
 
@@ -20,6 +23,10 @@ class NoneCompressor:
 
 
 class QSGDCompressor:
+    """
+    QSGD Compressor with Elias coding.
+    Code: Elias coded string is represented in 64 bit integers.
+    """
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level
@@ -59,7 +66,6 @@ class QSGDCompressor:
 
         for sign, xi in zip(sign_array, xi_array):
             code += str(sign.item())
-            # code += self.elias_encode(xi.item())
             code += self._encode_dict[xi.item()]
 
         code_int_list = []
@@ -69,10 +75,6 @@ class QSGDCompressor:
 
         compressed_tensor = torch.tensor(code_int_list, dtype=torch.int64, device=self._device)
         compressed_tensor_size = torch.tensor(compressed_tensor.size(), device=self._device)
-
-        # import sys
-        # print("Org", sys.getsizeof(tensor.storage()), "Comp", sys.getsizeof(compressed_tensor.storage()))
-        # print("Size", tensor.size(), tensor.dtype, compressed_tensor.size())
 
         return compressed_tensor, compressed_tensor_size
 
@@ -141,6 +143,10 @@ class QSGDCompressor:
 
 
 class QSGDWECCompressor:
+    """
+    QSGD Compressor without Elias coding.
+    Code: norm, sign array, xi array.
+    """
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level
@@ -169,6 +175,10 @@ class QSGDWECCompressor:
 
 
 class QSGDWECModCompressor:
+    """
+    Modified QSGD Compressor without Elias coding.
+    Code: norm, sign array * xi array.
+    """
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level
@@ -199,6 +209,10 @@ class QSGDWECModCompressor:
 
 
 class TernGradCompressor:
+    """
+    TernGrad Compressor.
+    Code: norm, sign array, b array.
+    """
     def __init__(self, device):
         self._device = device
 
@@ -218,6 +232,10 @@ class TernGradCompressor:
 
 
 class TernGradModCompressor:
+    """
+    TernGrad Compressor.
+    Code: norm, sign array * b array.
+    """
     def __init__(self, device):
         self._device = device
 

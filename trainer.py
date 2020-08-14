@@ -1,4 +1,6 @@
 import os
+import time
+import datetime
 import argparse
 import numpy as np
 import torch
@@ -8,7 +10,7 @@ from model_dispatcher import CIFAR
 from reducer import (
     NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer, TernGradReducer,
     QSGDWECModReducer, TernGradReducer, TernGradModReducer, QSGDWECMod2Reducer,
-    QSGDWECMod3Reducer, QSGDBPReducer
+    QSGDWECMod3Reducer, QSGDBPReducer, QSGDWECMod4Reducer
 )
 from timer import Timer
 from metrics import AverageMeter
@@ -19,6 +21,8 @@ config = dict(
     num_epochs=5,
     batch_size=128,
     architecture="LeNet",
+    reducer="QSGDWECMod3Reducer",
+    quantization_level=6,
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -53,20 +57,33 @@ def initiate_distributed():
           + f"WORLD_SIZE = {dist.get_world_size()}" + f", backend={dist.get_backend()}")
 
 
-def train(local_rank):
+def train(local_rank, log_path):
+    if local_rank == 0:
+        os.makedirs(log_path)
+        start = datetime.datetime.now()
+        # top1_accuracy_log = np.zeros(config['num_epochs'])
+        # top5_accuracy_log = np.zeros(config['num_epochs'])
+        # loss_log = np.zeros(config['num_epochs'])
+        # time_log = np.zeros(config['num_epochs'])
+
+        metric_list = ['top1_accuracy', 'top5_accuracy', 'loss', 'time']
+        log_dict = {metric: np.zeros(config['num_epochs']) for metric in metric_list}
+
     torch.manual_seed(config["seed"] + local_rank)
     np.random.seed(config["seed"] + local_rank)
 
     device = torch.device(f'cuda:{local_rank}')
     timer = Timer(verbosity_level=config["log_verbosity"], log_fn=log_info)
 
-    reducer = NoneReducer(device, timer)
+    # reducer = NoneReducer(device, timer)
     # reducer = NoneAllReducer(device, timer)
     # reducer = QSGDReducer(device, timer, quantization_level=8)
     # reducer = QSGDWECReducer(device, timer, quantization_level=8)
     # reducer = QSGDWECModReducer(device, timer, quantization_level=8)
     # reducer = TernGradReducer(device, timer)
     # reducer = TernGradModReducer(device, timer)
+    # reducer = QSGDWECMod4Reducer(device, timer, quantization_level=config['quantization_level'])
+    reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
 
     lr = config['lr']
     bits_communicated = 0
@@ -126,9 +143,29 @@ def train(local_rank):
                         tags={"split": "test"},
                     )
 
+        if local_rank == 0:
+            # top1_accuracy_log[epoch] = epoch_metrics.values()['top1_accuracy']
+            # top5_accuracy_log[epoch] = epoch_metrics.values()['top5_accuracy']
+            # loss_log[epoch] = epoch_metrics.values()['cross_entropy_loss']
+            # time_log[epoch] = (datetime.datetime.now() - start).total_seconds()
+
+            log_dict['top1_accuracy'][epoch] = epoch_metrics.values()['top1_accuracy']
+            log_dict['top5_accuracy'][epoch] = epoch_metrics.values()['top5_accuracy']
+            log_dict['loss'][epoch] = epoch_metrics.values()['cross_entropy_loss']
+            log_dict['time'][epoch] =  (datetime.datetime.now() - start).total_seconds()
+
     if local_rank == 0:
         print(timer.summary())
-        timer.save_summary(os.path.join("timer_summary.json"))
+        timer.save_summary(f'{log_path}/timer_summary.json')
+
+        with open(f'{log_path}/success.txt', 'w') as file:
+            file.write(f"Training completed at {datetime.datetime.now()}\n\n")
+
+            file.write(f"Training parameters\n")
+            list_of_strings = [f'{key} : {value}' for key, value in config.items()]
+            [file.write(f'{string}\n') for string in list_of_strings]
+
+        np.save(f'{log_path}/log_dict.npy', log_dict)
 
 
 if __name__ == '__main__':
@@ -138,6 +175,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     local_rank = args.local_rank
 
-    initiate_distributed()
-    train(local_rank)
+    log_path = f"./logs/{config['architecture']}_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}"
 
+    initiate_distributed()
+    train(local_rank, log_path)

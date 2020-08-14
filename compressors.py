@@ -7,6 +7,7 @@ class NoneCompressor:
     """
     No compression.
     """
+
     def __init__(self, device):
         self._device = device
 
@@ -27,6 +28,7 @@ class QSGDCompressor:
     QSGD Compressor with Elias coding.
     Code: Elias coded string is represented in 64 bit integers.
     """
+
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level
@@ -148,6 +150,7 @@ class QSGDWECCompressor:
     QSGD Compressor without Elias coding.
     Code: norm, sign array, xi array.
     """
+
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level
@@ -182,6 +185,7 @@ class QSGDWECModCompressor:
     Modified QSGD Compressor without Elias coding.
     Code: norm, sign array * xi array.
     """
+
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level
@@ -206,7 +210,7 @@ class QSGDWECModCompressor:
         sign_xi_array = sign_array * xi_array
 
         norm = norm / s
-        
+
         return norm, sign_xi_array
 
     def decompress(self, norm, sign_xi_array):
@@ -218,6 +222,7 @@ class TernGradCompressor:
     TernGrad Compressor.
     Code: norm, sign array, b array.
     """
+
     def __init__(self, device):
         self._device = device
 
@@ -241,6 +246,7 @@ class TernGradModCompressor:
     TernGrad Compressor.
     Code: norm, sign array * b array.
     """
+
     def __init__(self, device):
         self._device = device
 

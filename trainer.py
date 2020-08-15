@@ -20,15 +20,15 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
-    reducer="NoneAllReducer",
-    #quantization_level=8,
+    reducer="QSGDWECMod3Reducer",
+    quantization_level=8,
     seed=42,
     log_verbosity=2,
     lr=0.01,
 )
 
 
-def log_info(name, values, tags=None):
+def log_info(name, values, tags={}):
     value_list = []
     for key in sorted(values.keys()):
         value = values[key]
@@ -72,8 +72,8 @@ def train(local_rank, log_path):
     device = torch.device(f'cuda:{local_rank}')
     timer = Timer(verbosity_level=config["log_verbosity"], log_fn=log_info)
 
-    reducer = globals()[config['reducer']](device, timer)
-    # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
+    # reducer = globals()[config['reducer']](device, timer)
+    reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
 
     lr = config['lr']
     bits_communicated = 0
@@ -82,7 +82,9 @@ def train(local_rank, log_path):
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
     for epoch in range(config['num_epochs']):
-        print("Epoch", epoch)
+        if local_rank == 0:
+            log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch})
+
         epoch_metrics = AverageMeter(device)
 
         if 0 <= epoch < 50:

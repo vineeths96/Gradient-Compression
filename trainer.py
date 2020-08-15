@@ -12,6 +12,7 @@ from reducer import (
     QSGDWECMod3Reducer, QSGDBPReducer, QSGDWECMod4Reducer
 )
 from timer import Timer
+from logger import Logger
 from metrics import AverageMeter
 
 
@@ -26,21 +27,6 @@ config = dict(
     log_verbosity=2,
     lr=0.01,
 )
-
-
-def log_info(name, values, tags={}):
-    value_list = []
-    for key in sorted(values.keys()):
-        value = values[key]
-        value_list.append(f"{key}:{value:7.3f}")
-    values = ", ".join(value_list)
-
-    tag_list = []
-    for key, tag in tags.items():
-        tag_list.append(f"{key}:{tag}")
-    tags = ", ".join(tag_list)
-
-    print("{name:20s} - {values} ({tags})".format(name=name, values=values, tags=tags))
 
 
 def initiate_distributed():
@@ -58,19 +44,13 @@ def initiate_distributed():
 
 def train(local_rank, log_path):
     if local_rank == 0:
-        os.makedirs(log_path)
-        start = datetime.datetime.now()
-
-        metric_list = {'train_top1_accuracy', 'train_top5_accuracy',
-                       'test_top1_accuracy', 'test_top5_accuracy',
-                       'loss', 'time'}
-        log_dict = {metric: np.zeros(config['num_epochs']) for metric in metric_list}
+        logger = Logger(log_path, config)
 
     torch.manual_seed(config["seed"] + local_rank)
     np.random.seed(config["seed"] + local_rank)
 
     device = torch.device(f'cuda:{local_rank}')
-    timer = Timer(verbosity_level=config["log_verbosity"], log_fn=log_info)
+    timer = Timer(verbosity_level=config["log_verbosity"])
 
     # reducer = globals()[config['reducer']](device, timer)
     reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
@@ -83,7 +63,7 @@ def train(local_rank, log_path):
 
     for epoch in range(config['num_epochs']):
         if local_rank == 0:
-            log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch})
+            logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch})
 
         epoch_metrics = AverageMeter(device)
 
@@ -110,7 +90,7 @@ def train(local_rank, log_path):
 
                 with timer("batch.reduce", epoch_frac):
                     bits_communicated += reducer.reduce(send_buffers, grads)
-                # Test paramgrad update
+
                 with timer("batch.step", epoch_frac, verbosity=2):
                     for param, grad in zip(model.parameters, grads):
                         param.data.add_(other=grad, alpha=-lr)
@@ -119,7 +99,7 @@ def train(local_rank, log_path):
             epoch_metrics.reduce()
             if local_rank == 0:
                 for key, value in epoch_metrics.values().items():
-                    log_info(
+                    logger.log_info(
                         key,
                         {"value": value, "epoch": epoch, "bits": bits_communicated},
                         tags={"split": "train"},
@@ -129,33 +109,18 @@ def train(local_rank, log_path):
             test_stats = model.test()
             if local_rank == 0:
                 for key, value in test_stats.values().items():
-                    log_info(
+                    logger.log_info(
                         key,
                         {"value": value, "epoch": epoch, "bits": bits_communicated},
                         tags={"split": "test"},
                     )
 
         if local_rank == 0:
-            log_dict['train_top1_accuracy'][epoch] = epoch_metrics.values()['top1_accuracy']
-            log_dict['train_top5_accuracy'][epoch] = epoch_metrics.values()['top5_accuracy']
-            log_dict['test_top1_accuracy'][epoch] = test_stats.values()['top1_accuracy']
-            log_dict['test_top5_accuracy'][epoch] = test_stats.values()['top5_accuracy']
-            log_dict['loss'][epoch] = epoch_metrics.values()['cross_entropy_loss']
-            log_dict['time'][epoch] = (datetime.datetime.now() - start).total_seconds()
+            logger.epoch_update(epoch, epoch_metrics, test_stats)
 
     if local_rank == 0:
         print(timer.summary())
-        timer.save_summary(f'{log_path}/timer_summary.json')
-
-        with open(f'{log_path}/success.txt', 'w') as file:
-            file.write(f"Training completed at {datetime.datetime.now()}\n\n")
-
-            file.write(f"Training parameters\n")
-            list_of_strings = [f'{key} : {value}' for key, value in config.items()]
-            [file.write(f'{string}\n') for string in list_of_strings]
-
-        np.save(f'{log_path}/log_dict.npy', log_dict)
-        torch.save(model.state_dict(), f'{log_path}/model.pt')
+        logger.summary_writer(model, timer)
 
 
 if __name__ == '__main__':

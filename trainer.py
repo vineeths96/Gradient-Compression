@@ -18,11 +18,11 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=5,
+    num_epochs=150,
     batch_size=128,
-    architecture="LeNet",
-    reducer="QSGDWECMod3Reducer",
-    quantization_level=6,
+    architecture="ResNet50",
+    reducer="NoneAllReducer",
+    #quantization_level=8,
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -61,12 +61,10 @@ def train(local_rank, log_path):
     if local_rank == 0:
         os.makedirs(log_path)
         start = datetime.datetime.now()
-        # top1_accuracy_log = np.zeros(config['num_epochs'])
-        # top5_accuracy_log = np.zeros(config['num_epochs'])
-        # loss_log = np.zeros(config['num_epochs'])
-        # time_log = np.zeros(config['num_epochs'])
 
-        metric_list = ['top1_accuracy', 'top5_accuracy', 'loss', 'time']
+        metric_list = {'train_top1_accuracy', 'train_top5_accuracy',
+                       'test_top1_accuracy', 'test_top5_accuracy',
+                       'loss', 'time'}
         log_dict = {metric: np.zeros(config['num_epochs']) for metric in metric_list}
 
     torch.manual_seed(config["seed"] + local_rank)
@@ -75,15 +73,8 @@ def train(local_rank, log_path):
     device = torch.device(f'cuda:{local_rank}')
     timer = Timer(verbosity_level=config["log_verbosity"], log_fn=log_info)
 
-    # reducer = NoneReducer(device, timer)
-    # reducer = NoneAllReducer(device, timer)
-    # reducer = QSGDReducer(device, timer, quantization_level=8)
-    # reducer = QSGDWECReducer(device, timer, quantization_level=8)
-    # reducer = QSGDWECModReducer(device, timer, quantization_level=8)
-    # reducer = TernGradReducer(device, timer)
-    # reducer = TernGradModReducer(device, timer)
-    # reducer = QSGDWECMod4Reducer(device, timer, quantization_level=config['quantization_level'])
-    reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
+    reducer = globals()[config['reducer']](device, timer)
+    # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
 
     lr = config['lr']
     bits_communicated = 0
@@ -95,9 +86,9 @@ def train(local_rank, log_path):
         print("Epoch", epoch)
         epoch_metrics = AverageMeter(device)
 
-        if 0 <= epoch < 150:
+        if 0 <= epoch < 50:
             lr = lr
-        elif 150 <= epoch < 250:
+        elif 50 <= epoch < 150:
             lr = lr * 0.1
         elif 250 <= epoch <= 350:
             lr = lr * 0.01
@@ -118,7 +109,7 @@ def train(local_rank, log_path):
 
                 with timer("batch.reduce", epoch_frac):
                     bits_communicated += reducer.reduce(send_buffers, grads)
-
+                # Test paramgrad update
                 with timer("batch.step", epoch_frac, verbosity=2):
                     for param, grad in zip(model.parameters, grads):
                         param.data.add_(other=grad, alpha=-lr)
@@ -144,15 +135,12 @@ def train(local_rank, log_path):
                     )
 
         if local_rank == 0:
-            # top1_accuracy_log[epoch] = epoch_metrics.values()['top1_accuracy']
-            # top5_accuracy_log[epoch] = epoch_metrics.values()['top5_accuracy']
-            # loss_log[epoch] = epoch_metrics.values()['cross_entropy_loss']
-            # time_log[epoch] = (datetime.datetime.now() - start).total_seconds()
-
-            log_dict['top1_accuracy'][epoch] = epoch_metrics.values()['top1_accuracy']
-            log_dict['top5_accuracy'][epoch] = epoch_metrics.values()['top5_accuracy']
+            log_dict['train_top1_accuracy'][epoch] = epoch_metrics.values()['top1_accuracy']
+            log_dict['train_top5_accuracy'][epoch] = epoch_metrics.values()['top5_accuracy']
+            log_dict['test_top1_accuracy'][epoch] = test_stats['top1_accuracy']
+            log_dict['test_top5_accuracy'][epoch] = test_stats['top5_accuracy']
             log_dict['loss'][epoch] = epoch_metrics.values()['cross_entropy_loss']
-            log_dict['time'][epoch] =  (datetime.datetime.now() - start).total_seconds()
+            log_dict['time'][epoch] = (datetime.datetime.now() - start).total_seconds()
 
     if local_rank == 0:
         print(timer.summary())
@@ -166,6 +154,7 @@ def train(local_rank, log_path):
             [file.write(f'{string}\n') for string in list_of_strings]
 
         np.save(f'{log_path}/log_dict.npy', log_dict)
+        torch.save(model.state_dict(), f'{log_path}/model.pt')
 
 
 if __name__ == '__main__':
@@ -175,7 +164,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     local_rank = args.local_rank
 
-    log_path = f"./logs/{config['architecture']}_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}"
+    log_path = f"./logs/{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}_{config['architecture']}"
 
     initiate_distributed()
     train(local_rank, log_path)

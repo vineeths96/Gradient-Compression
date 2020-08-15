@@ -141,3 +141,5 @@ data/
 # Idea
 .idea/
 
+# Logs
+logs/

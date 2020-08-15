@@ -182,4 +182,4 @@ class CIFAR:
         mean_metrics.reduce()
         test_model.train()
 
-        return mean_metrics.values()
+        return mean_metrics

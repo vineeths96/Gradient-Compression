@@ -1,5 +1,4 @@
 import os
-import time
 import datetime
 import argparse
 import numpy as np
@@ -127,7 +126,7 @@ def train(local_rank, log_path):
         with timer("test.last", epoch):
             test_stats = model.test()
             if local_rank == 0:
-                for key, value in test_stats.items():
+                for key, value in test_stats.values().items():
                     log_info(
                         key,
                         {"value": value, "epoch": epoch, "bits": bits_communicated},
@@ -137,8 +136,8 @@ def train(local_rank, log_path):
         if local_rank == 0:
             log_dict['train_top1_accuracy'][epoch] = epoch_metrics.values()['top1_accuracy']
             log_dict['train_top5_accuracy'][epoch] = epoch_metrics.values()['top5_accuracy']
-            log_dict['test_top1_accuracy'][epoch] = test_stats['top1_accuracy']
-            log_dict['test_top5_accuracy'][epoch] = test_stats['top5_accuracy']
+            log_dict['test_top1_accuracy'][epoch] = test_stats.values()['top1_accuracy']
+            log_dict['test_top5_accuracy'][epoch] = test_stats.values()['top5_accuracy']
             log_dict['loss'][epoch] = epoch_metrics.values()['cross_entropy_loss']
             log_dict['time'][epoch] = (datetime.datetime.now() - start).total_seconds()
 

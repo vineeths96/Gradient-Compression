@@ -489,62 +489,6 @@ class TernGradModReducer(Reducer):
 
 
 
-class QSGDWECMod2Reducer(Reducer):
-    def __init__(self, device, timer, quantization_level=8):
-        super(QSGDWECMod2Reducer, self).__init__(device, timer)
-        self._quantization_level = quantization_level
-
-    def reduce(self, grad_in, grad_out):
-        from compressors import QSGDWECMod2Compressor
-
-        bits_communicated = 0
-        compressor = QSGDWECMod2Compressor(self._device, self._quantization_level)
-
-        with self._timer("reduce.flat_pack"):
-            flat_grad = TensorBuffer(grad_in)
-
-        with self._timer("reduce.reduce.norm", verbosity=2):
-            norm = flat_grad.buffer.abs().max()
-
-            if self.n_workers > 1:
-                norms_reduce_op = torch.distributed.all_reduce(norm, async_op=True)
-                norms_reduce_op.wait()
-                norm.true_divide(self.n_workers)
-            else:
-                norm = norm
-
-        with self._timer("reduce.compress", verbosity=2):
-            sign_xi_array = compressor.compress(norm, flat_grad.buffer)
-
-        with self._timer("reduce.reduce.vector", verbosity=2):
-            if self.n_workers > 1:
-                sign_xi_reduce_op = torch.distributed.all_reduce(sign_xi_array, async_op=True)
-                sign_xi_reduce_op.wait()
-                sign_xi_array.true_divide(self.n_workers)
-            else:
-                sign_xi_array = sign_xi_array
-
-        with self._timer("reduce.decompress", verbosity=2):
-            flat_grad.buffer = compressor.decompress(norm, sign_xi_array)
-
-        with self._timer("reduce.setgrad", verbosity=2):
-            for out in grad_out:
-                out[:] = 0.0
-
-            for grad, out in zip(flat_grad, grad_out):
-                # TODO Average or Sum
-                grad = grad.to(self._device)
-                out.add_(other=grad, alpha=1)
-
-            bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
-
-        return bits_communicated
-
-    def n_bits(self, tensor):
-        return 8 * tensor.nelement() * tensor.element_size()
-
-
-
 class QSGDWECMod3Reducer(Reducer):
     def __init__(self, device, timer, quantization_level=8):
         super(QSGDWECMod3Reducer, self).__init__(device, timer)

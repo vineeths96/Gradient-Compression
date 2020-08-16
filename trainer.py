@@ -21,8 +21,8 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
-    reducer="QSGDWECMod3Reducer",
-    quantization_level=8,
+    reducer="TernGradModReducer",
+    #quantization_level=8,
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -52,8 +52,8 @@ def train(local_rank, log_path):
     device = torch.device(f'cuda:{local_rank}')
     timer = Timer(verbosity_level=config["log_verbosity"])
 
-    # reducer = globals()[config['reducer']](device, timer)
-    reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
+    reducer = globals()[config['reducer']](device, timer)
+    # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
 
     lr = config['lr']
     bits_communicated = 0

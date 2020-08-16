@@ -2,6 +2,7 @@ import os
 import datetime
 import argparse
 import numpy as np
+
 import torch
 import torch.distributed as dist
 
@@ -14,7 +15,6 @@ from reducer import (
 from timer import Timer
 from logger import Logger
 from metrics import AverageMeter
-
 
 config = dict(
     distributed_backend="nccl",
@@ -69,9 +69,9 @@ def train(local_rank, log_path):
 
         if 0 <= epoch < 50:
             lr = lr
-        elif 50 <= epoch < 150:
+        elif 50 <= epoch < 100:
             lr = lr * 0.1
-        elif 250 <= epoch <= 350:
+        elif 100 <= epoch <= 150:
             lr = lr * 0.01
         else:
             lr = 0.0001

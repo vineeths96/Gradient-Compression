@@ -3,7 +3,8 @@ import torch.distributed
 
 from compressors import (
     NoneCompressor, QSGDCompressor, QSGDWECCompressor,
-    QSGDWECModCompressor, TernGradCompressor, TernGradModCompressor
+    QSGDWECModCompressor, TernGradCompressor, TernGradModCompressor,
+    QSGDMaxNormCompressor, QSGDBPAllReduceCompressor, QSGDBPCompressor,
 )
 
 
@@ -487,18 +488,19 @@ class TernGradModReducer(Reducer):
         return 8 * tensor.nelement() * tensor.element_size()
 
 
+class QSGDMaxNormReducer(Reducer):
+    """
+    All reduce reducer with QSGD compression and without Elias encoding.
+    All gathers norms, normalizing with max norm, all reduces sign array * xi vector.
+    """
 
-
-class QSGDWECMod3Reducer(Reducer):
     def __init__(self, device, timer, quantization_level=8):
-        super(QSGDWECMod3Reducer, self).__init__(device, timer)
+        super(QSGDMaxNormReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
 
     def reduce(self, grad_in, grad_out):
-        from compressors import QSGDWECMod3Compressor
-
         bits_communicated = 0
-        compressor = QSGDWECMod3Compressor(self._device, self._quantization_level)
+        compressor = QSGDMaxNormCompressor(self._device, self._quantization_level)
 
         with self._timer("reduce.flat_pack"):
             flat_grad = TensorBuffer(grad_in)
@@ -547,12 +549,16 @@ class QSGDWECMod3Reducer(Reducer):
 
 
 class QSGDBPReducer(Reducer):
+    """
+    All gather reducer with QSGD compression and without Elias encoding.
+    All gathers norms, bit packed sign vector, bit packed xi vector.
+    """
+
     def __init__(self, device, timer, quantization_level=8):
         super(QSGDBPReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
 
     def reduce(self, grad_in, grad_out):
-        from compressors import QSGDBPCompressor
         bits_communicated = 0
         compressor = QSGDBPCompressor(self._device, self._quantization_level)
 
@@ -590,7 +596,8 @@ class QSGDBPReducer(Reducer):
                 collected_signs = [sign_packed]
                 collected_xis = [xi_packed]
 
-        bits_communicated += self.n_bits(norm) + self.n_bits(sign_packed) + self.n_bits(xi_packed) + self.n_bits(xi_size)
+        bits_communicated += self.n_bits(norm) + self.n_bits(sign_packed) + self.n_bits(xi_packed) + self.n_bits(
+            xi_size)
 
         with self._timer("reduce.decompress", verbosity=2):
             decompressed_tensors = []
@@ -615,16 +622,19 @@ class QSGDBPReducer(Reducer):
         return 8 * tensor.nelement() * tensor.element_size()
 
 
-class QSGDWECMod4Reducer(Reducer):
+class QSGDBPAllReducer(Reducer):
+    """
+    All reduce reducer with QSGD compression and without Elias encoding.
+    All gathers norms, normalizing with max norm, all reduces packed sign array * xi vector.
+    """
+
     def __init__(self, device, timer, quantization_level=8):
-        super(QSGDWECMod4Reducer, self).__init__(device, timer)
+        super(QSGDBPAllReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
 
     def reduce(self, grad_in, grad_out):
-        from compressors import QSGDWECMod4Compressor
-
         bits_communicated = 0
-        compressor = QSGDWECMod4Compressor(self._device, self._quantization_level)
+        compressor = QSGDBPAllReduceCompressor(self._device, self._quantization_level)
 
         with self._timer("reduce.flat_pack"):
             flat_grad = TensorBuffer(grad_in)

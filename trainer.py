@@ -7,9 +7,9 @@ import torch.distributed as dist
 
 from model_dispatcher import CIFAR
 from reducer import (
-    NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer, TernGradReducer,
-    QSGDWECModReducer, TernGradReducer, TernGradModReducer, QSGDWECMod2Reducer,
-    QSGDWECMod3Reducer, QSGDBPReducer, QSGDWECMod4Reducer
+    NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer,
+    QSGDWECModReducer, TernGradReducer, TernGradModReducer,
+    QSGDMaxNormReducer, QSGDBPReducer, QSGDBPAllReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -22,7 +22,7 @@ config = dict(
     batch_size=128,
     architecture="ResNet50",
     reducer="TernGradModReducer",
-    #quantization_level=8,
+    # quantization_level=8,
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -99,21 +99,15 @@ def train(local_rank, log_path):
             epoch_metrics.reduce()
             if local_rank == 0:
                 for key, value in epoch_metrics.values().items():
-                    logger.log_info(
-                        key,
-                        {"value": value, "epoch": epoch, "bits": bits_communicated},
-                        tags={"split": "train"},
-                    )
+                    logger.log_info(key, {"value": value, "epoch": epoch, "bits": bits_communicated},
+                                    tags={"split": "train"}, )
 
         with timer("test.last", epoch):
             test_stats = model.test()
             if local_rank == 0:
                 for key, value in test_stats.values().items():
-                    logger.log_info(
-                        key,
-                        {"value": value, "epoch": epoch, "bits": bits_communicated},
-                        tags={"split": "test"},
-                    )
+                    logger.log_info(key, {"value": value, "epoch": epoch, "bits": bits_communicated},
+                                    tags={"split": "test"}, )
 
         if local_rank == 0:
             logger.epoch_update(epoch, epoch_metrics, test_stats)

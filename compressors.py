@@ -1,5 +1,7 @@
 import torch
 import struct
+import bitpacking
+# import gpu_bitpacking
 import numpy as np
 
 
@@ -267,8 +269,13 @@ class TernGradModCompressor:
         return scaler * sign_b_array
 
 
-# All gather norm max norm
-class QSGDWECMod3Compressor:
+class QSGDMaxNormCompressor:
+    """
+    Modified QSGD Compressor without Elias coding.
+    Normalizing with max norm among thw workers.
+    Code: sign array * xi array.
+    """
+
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level
@@ -295,12 +302,13 @@ class QSGDWECMod3Compressor:
         return norm * sign_xi_array
 
 
-import torch
-import bitpacking
-import gpu_bitpacking
-
-
 class QSGDBPCompressor:
+    """
+    Modified QSGD Compressor without Elias coding.
+    Bit packing greedily in four modes.
+    Code: norm, sign_packed, xi_packed, xi_size
+    """
+
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level
@@ -348,8 +356,14 @@ class QSGDBPCompressor:
         return norm * sign_array * xi_array
 
 
-# All reduce bit packed
-class QSGDWECMod4Compressor:
+class QSGDBPAllReduceCompressor:
+    """
+    Modified QSGD Compressor without Elias coding.
+    Normalizing with max norm among thw workers.
+    Bit packing eight ints in 64bits to allreduce.
+    Code: sign_xi_packed
+    """
+
     def __init__(self, device, quantization_level=8):
         self._device = device
         self._quantization_level = quantization_level

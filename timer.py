@@ -19,9 +19,9 @@ class Timer:
     ... print(timer.summary())
     """
 
-    def __init__(self, verbosity_level=1, log_fn=None, skip_first=True, on_cuda=True):
+    def __init__(self, verbosity_level=1, skip_first=True, on_cuda=True):
         self.verbosity_level = verbosity_level
-        self.log_fn = log_fn if log_fn is not None else self._default_log_fn
+        self.log_fn = self.log_info
         self.skip_first = skip_first
         self.cuda_available = torch.cuda.is_available() and on_cuda
 
@@ -132,9 +132,16 @@ class Timer:
         if torch.cuda.is_available():
             torch.cuda.synchronize()
 
-    def _default_log_fn(self, name, values, tags):
-        label = tags["event"]
-        epoch = values["epoch"]
-        duration = values["value"]
+    def log_info(self, name, values, tags={}):
+        value_list = []
+        for key in sorted(values.keys()):
+            value = values[key]
+            value_list.append(f"{key}:{value:7.3f}")
+        values = ", ".join(value_list)
 
-        print(f"{name}: {label:30s} @ {epoch:4.1f} - {duration:8.5f}s")
+        tag_list = []
+        for key, tag in tags.items():
+            tag_list.append(f"{key}:{tag}")
+        tags = ", ".join(tag_list)
+
+        print("{name:20s} - {values} ({tags})".format(name=name, values=values, tags=tags))

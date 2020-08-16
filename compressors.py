@@ -1,5 +1,7 @@
 import torch
 import struct
+import bitpacking
+# import gpu_bitpacking
 import numpy as np
 
 
@@ -265,3 +267,127 @@ class TernGradModCompressor:
 
     def decompress(self, scaler, sign_b_array):
         return scaler * sign_b_array
+
+
+class QSGDMaxNormCompressor:
+    """
+    Modified QSGD Compressor without Elias coding.
+    Normalizing with max norm among thw workers.
+    Code: sign array * xi array.
+    """
+
+    def __init__(self, device, quantization_level=8):
+        self._device = device
+        self._quantization_level = quantization_level
+
+    def compress(self, norm, tensor):
+        s = (1 << self._quantization_level) - 1
+
+        sign_array = torch.sign(tensor).to(dtype=torch.int8)
+
+        l_array = torch.abs(tensor) / norm * s
+        l_array_floored = l_array.to(dtype=torch.int32)
+        prob_array = l_array - l_array_floored
+        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+        mask = torch.bernoulli(prob_array)
+        xi_array = l_array_floored + mask
+        xi_array = xi_array.to(dtype=torch.int32)
+
+        sign_xi_array = sign_array * xi_array
+
+        return sign_xi_array
+
+    def decompress(self, norm, sign_xi_array):
+        return norm * sign_xi_array
+
+
+class QSGDBPCompressor:
+    """
+    Modified QSGD Compressor without Elias coding.
+    Bit packing greedily in four modes.
+    Code: norm, sign_packed, xi_packed, xi_size
+    """
+
+    def __init__(self, device, quantization_level=8):
+        self._device = device
+        self._quantization_level = quantization_level
+
+    def compress(self, tensor):
+        s = (1 << self._quantization_level) - 1
+
+        # norm = torch.norm(tensor)
+        norm = tensor.abs().max()
+
+        sign_array = torch.sign(tensor).to(dtype=torch.int32)
+        sign_array *= -1
+        sign_array[sign_array == -1] = 0
+
+        l_array = torch.abs(tensor) / norm * s
+        l_array_floored = l_array.to(dtype=torch.int)
+        prob_array = l_array - l_array_floored
+        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+        mask = torch.bernoulli(prob_array)
+        xi_array = l_array_floored + mask
+        xi_array = xi_array.to(dtype=torch.int32)
+
+        sign_packed = bitpacking.packing(sign_array.to('cpu')).to(device=self._device)
+        xi_packed = bitpacking.packing(xi_array.to('cpu')).to(device=self._device)
+        xi_size = torch.tensor(xi_packed.size(), device=self._device)
+
+        # sign_packed = gpu_bitpacking.packing(sign_array)
+        # xi_packed = gpu_bitpacking.packing(xi_array)
+        # xi_size = torch.tensor(xi_packed.size(), device=self._device)
+
+        norm = norm / s
+
+        return norm, sign_packed, xi_packed, xi_size
+
+    def decompress(self, norm, sign_packed, xi_packed, tensor_size):
+        sign_array = bitpacking.unpacking(sign_packed.to('cpu')).to(device=self._device)
+        sign_array = sign_array[:tensor_size]
+        xi_array = bitpacking.unpacking(xi_packed.to('cpu')).to(device=self._device)
+        xi_array = xi_array[:tensor_size]
+
+        sign_array[sign_array == 1] = -1
+        sign_array[sign_array == 0] = 1
+
+        return norm * sign_array * xi_array
+
+
+class QSGDBPAllReduceCompressor:
+    """
+    Modified QSGD Compressor without Elias coding.
+    Normalizing with max norm among thw workers.
+    Bit packing eight ints in 64bits to allreduce.
+    Code: sign_xi_packed
+    """
+
+    def __init__(self, device, quantization_level=8):
+        self._device = device
+        self._quantization_level = quantization_level
+
+    def compress(self, norm, tensor):
+        s = (1 << self._quantization_level) - 1
+
+        sign_array = torch.sign(tensor).to(dtype=torch.int8)
+
+        l_array = torch.abs(tensor) / norm * s
+        l_array_floored = l_array.to(dtype=torch.int32)
+        prob_array = l_array - l_array_floored
+        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+        mask = torch.bernoulli(prob_array)
+        xi_array = l_array_floored + mask
+        xi_array = xi_array.to(dtype=torch.int32)
+
+        sign_xi_array = sign_array * xi_array
+        sign_xi_packed = bitpacking.packing(sign_xi_array.to('cpu')).to(device=self._device)
+
+        return sign_xi_packed
+
+    def decompress(self, norm, sign_xi_array):
+        sign_xi_unpacked = bitpacking.unpacking(sign_xi_array.to('cpu')).to(device=self._device)
+
+        return norm * sign_xi_unpacked

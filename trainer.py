@@ -1,42 +1,32 @@
 import os
+import datetime
 import argparse
 import numpy as np
+
 import torch
 import torch.distributed as dist
 
 from model_dispatcher import CIFAR
 from reducer import (
     NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer,
-    QSGDWECModReducer, TernGradReducer, TernGradModReducer
+    QSGDWECModReducer, TernGradReducer, TernGradModReducer,
+    QSGDMaxNormReducer, QSGDBPReducer, QSGDBPAllReducer,
 )
 from timer import Timer
+from logger import Logger
 from metrics import AverageMeter
-
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=5,
+    num_epochs=150,
     batch_size=128,
-    architecture="LeNet",
+    architecture="ResNet50",
+    reducer="TernGradModReducer",
+    # quantization_level=8,
     seed=42,
     log_verbosity=2,
     lr=0.01,
 )
-
-
-def log_info(name, values, tags=None):
-    value_list = []
-    for key in sorted(values.keys()):
-        value = values[key]
-        value_list.append(f"{key}:{value:7.3f}")
-    values = ", ".join(value_list)
-
-    tag_list = []
-    for key, tag in tags.items():
-        tag_list.append(f"{key}:{tag}")
-    tags = ", ".join(tag_list)
-
-    print("{name:20s} - {values} ({tags})".format(name=name, values=values, tags=tags))
 
 
 def initiate_distributed():
@@ -52,20 +42,18 @@ def initiate_distributed():
           + f"WORLD_SIZE = {dist.get_world_size()}" + f", backend={dist.get_backend()}")
 
 
-def train(local_rank):
+def train(local_rank, log_path):
+    if local_rank == 0:
+        logger = Logger(log_path, config)
+
     torch.manual_seed(config["seed"] + local_rank)
     np.random.seed(config["seed"] + local_rank)
 
     device = torch.device(f'cuda:{local_rank}')
-    timer = Timer(verbosity_level=config["log_verbosity"], log_fn=log_info)
+    timer = Timer(verbosity_level=config["log_verbosity"])
 
-    reducer = NoneReducer(device, timer)
-    # reducer = NoneAllReducer(device, timer)
-    # reducer = QSGDReducer(device, timer, quantization_level=8)
-    # reducer = QSGDWECReducer(device, timer, quantization_level=8)
-    # reducer = QSGDWECModReducer(device, timer, quantization_level=8)
-    # reducer = TernGradReducer(device, timer)
-    # reducer = TernGradModReducer(device, timer)
+    reducer = globals()[config['reducer']](device, timer)
+    # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
 
     lr = config['lr']
     bits_communicated = 0
@@ -74,14 +62,16 @@ def train(local_rank):
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
     for epoch in range(config['num_epochs']):
-        print("Epoch", epoch)
+        if local_rank == 0:
+            logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch})
+
         epoch_metrics = AverageMeter(device)
 
-        if 0 <= epoch < 150:
+        if 0 <= epoch < 50:
             lr = lr
-        elif 150 <= epoch < 250:
+        elif 50 <= epoch < 100:
             lr = lr * 0.1
-        elif 250 <= epoch <= 350:
+        elif 100 <= epoch <= 150:
             lr = lr * 0.01
         else:
             lr = 0.0001
@@ -109,25 +99,22 @@ def train(local_rank):
             epoch_metrics.reduce()
             if local_rank == 0:
                 for key, value in epoch_metrics.values().items():
-                    log_info(
-                        key,
-                        {"value": value, "epoch": epoch, "bits": bits_communicated},
-                        tags={"split": "train"},
-                    )
+                    logger.log_info(key, {"value": value, "epoch": epoch, "bits": bits_communicated},
+                                    tags={"split": "train"}, )
 
         with timer("test.last", epoch):
             test_stats = model.test()
             if local_rank == 0:
-                for key, value in test_stats.items():
-                    log_info(
-                        key,
-                        {"value": value, "epoch": epoch, "bits": bits_communicated},
-                        tags={"split": "test"},
-                    )
+                for key, value in test_stats.values().items():
+                    logger.log_info(key, {"value": value, "epoch": epoch, "bits": bits_communicated},
+                                    tags={"split": "test"}, )
+
+        if local_rank == 0:
+            logger.epoch_update(epoch, epoch_metrics, test_stats)
 
     if local_rank == 0:
         print(timer.summary())
-        timer.save_summary(os.path.join("timer_summary.json"))
+        logger.summary_writer(model, timer)
 
 
 if __name__ == '__main__':
@@ -137,5 +124,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     local_rank = args.local_rank
 
+    log_path = f"./logs/{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}_{config['architecture']}"
+
     initiate_distributed()
-    train(local_rank)
+    train(local_rank, log_path)

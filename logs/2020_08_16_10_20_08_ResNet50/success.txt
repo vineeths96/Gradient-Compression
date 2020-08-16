@@ -1,0 +1,11 @@
+Training completed at 2020-08-16 12:54:24.361680
+
+Training parameters
+distributed_backend : nccl
+num_epochs : 150
+batch_size : 128
+architecture : ResNet50
+reducer : TernGradModReducer
+seed : 42
+log_verbosity : 2
+lr : 0.01

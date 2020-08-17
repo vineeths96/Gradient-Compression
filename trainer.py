@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 
 import torch
+import torch.optim as optim
 import torch.distributed as dist
 
 from model_dispatcher import CIFAR
@@ -21,8 +22,8 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
-    reducer="TernGradModReducer",
-    # quantization_level=8,
+    reducer="QSGDMaxNormReducer",
+    quantization_level=6,
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -52,8 +53,8 @@ def train(local_rank, log_path):
     device = torch.device(f'cuda:{local_rank}')
     timer = Timer(verbosity_level=config["log_verbosity"])
 
-    reducer = globals()[config['reducer']](device, timer)
-    # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
+    # reducer = globals()[config['reducer']](device, timer)
+    reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
 
     lr = config['lr']
     bits_communicated = 0
@@ -61,20 +62,23 @@ def train(local_rank, log_path):
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
+    optimizer = optim.SGD(params=model.parameters, lr=lr)
+    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+
     for epoch in range(config['num_epochs']):
         if local_rank == 0:
-            logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch})
+            logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch}, {"lr": scheduler.get_last_lr()})
 
         epoch_metrics = AverageMeter(device)
 
-        if 0 <= epoch < 50:
-            lr = lr
-        elif 50 <= epoch < 100:
-            lr = lr * 0.1
-        elif 100 <= epoch <= 150:
-            lr = lr * 0.01
-        else:
-            lr = 0.0001
+        # if 0 <= epoch < 50:
+        #     lr = lr
+        # elif 50 <= epoch < 100:
+        #     lr = lr * 0.1
+        # elif 100 <= epoch <= 150:
+        #     lr = lr * 0.01
+        # else:
+        #     lr = 0.0001
 
         train_loader = model.train_dataloader(config['batch_size'])
         for i, batch in enumerate(train_loader):
@@ -92,8 +96,11 @@ def train(local_rank, log_path):
                     bits_communicated += reducer.reduce(send_buffers, grads)
 
                 with timer("batch.step", epoch_frac, verbosity=2):
-                    for param, grad in zip(model.parameters, grads):
-                        param.data.add_(other=grad, alpha=-lr)
+                    # for param, grad in zip(model.parameters, grads):
+                    #     param.data.add_(other=grad, alpha=-lr)
+                    optimizer.step()
+
+        scheduler.step()
 
         with timer("epoch_metrics.collect", epoch, verbosity=2):
             epoch_metrics.reduce()

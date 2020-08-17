@@ -1,0 +1,12 @@
+Training completed at 2020-08-16 21:22:02.825272
+
+Training parameters
+distributed_backend : nccl
+num_epochs : 150
+batch_size : 128
+architecture : ResNet50
+reducer : QSGDMaxNormReducer
+quantization_level : 6
+seed : 42
+log_verbosity : 2
+lr : 0.01

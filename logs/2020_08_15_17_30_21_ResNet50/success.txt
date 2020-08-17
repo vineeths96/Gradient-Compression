@@ -5,7 +5,7 @@ distributed_backend : nccl
 num_epochs : 150
 batch_size : 128
 architecture : ResNet50
-reducer : QSGDWECMod3Reducer
+reducer : QSGDMaxNormReducer
 quantization_level : 8
 seed : 42
 log_verbosity : 2

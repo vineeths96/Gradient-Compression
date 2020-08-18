@@ -505,7 +505,7 @@ class QSGDMaxNormReducer(Reducer):
         with self._timer("reduce.flat_pack"):
             flat_grad = TensorBuffer(grad_in)
 
-        with self._timer("reduce.reduce.norm", verbosity=2):
+        with self._timer("reduce.norm", verbosity=2):
             norm = flat_grad.buffer.abs().max()
 
             if self.n_workers > 1:

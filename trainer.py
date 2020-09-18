@@ -12,6 +12,7 @@ from reducer import (
     NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer,
     QSGDWECModReducer, TernGradReducer, TernGradModReducer,
     QSGDMaxNormReducer, QSGDBPReducer, QSGDBPAllReducer,
+    RandKMaxNormReducer
 )
 from timer import Timer
 from logger import Logger
@@ -22,7 +23,8 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
-    reducer="QSGDMaxNormReducer",
+    # architecture="LeNet",
+    reducer="RandKMaxNormReducer",
     quantization_level=6,
     seed=42,
     log_verbosity=2,
@@ -47,8 +49,10 @@ def train(local_rank, log_path):
     if local_rank == 0:
         logger = Logger(log_path, config)
 
-    torch.manual_seed(config["seed"] + local_rank)
-    np.random.seed(config["seed"] + local_rank)
+    # torch.manual_seed(config["seed"] + local_rank)
+    # np.random.seed(config["seed"] + local_rank)
+    torch.manual_seed(config["seed"])
+    np.random.seed(config["seed"])
 
     device = torch.device(f'cuda:{local_rank}')
     timer = Timer(verbosity_level=config["log_verbosity"])
@@ -70,15 +74,6 @@ def train(local_rank, log_path):
             logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch}, {"lr": scheduler.get_last_lr()})
 
         epoch_metrics = AverageMeter(device)
-
-        # if 0 <= epoch < 50:
-        #     lr = lr
-        # elif 50 <= epoch < 100:
-        #     lr = lr * 0.1
-        # elif 100 <= epoch <= 150:
-        #     lr = lr * 0.01
-        # else:
-        #     lr = 0.0001
 
         train_loader = model.train_dataloader(config['batch_size'])
         for i, batch in enumerate(train_loader):

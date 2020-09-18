@@ -5,6 +5,7 @@ from compressors import (
     NoneCompressor, QSGDCompressor, QSGDWECCompressor,
     QSGDWECModCompressor, TernGradCompressor, TernGradModCompressor,
     QSGDMaxNormCompressor, QSGDBPAllReduceCompressor, QSGDBPCompressor,
+    RandKMaxNormCompressor,
 )
 
 
@@ -664,6 +665,77 @@ class QSGDBPAllReducer(Reducer):
 
         with self._timer("reduce.decompress", verbosity=2):
             flat_grad.buffer = compressor.decompress(max_norm, sign_xi_array)
+
+        with self._timer("reduce.setgrad", verbosity=2):
+            for out in grad_out:
+                out[:] = 0.0
+
+            for grad, out in zip(flat_grad, grad_out):
+                # TODO Average or Sum
+                grad = grad.to(self._device)
+                out.add_(other=grad, alpha=1)
+
+            bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
+
+        return bits_communicated
+
+    def n_bits(self, tensor):
+        return 8 * tensor.nelement() * tensor.element_size()
+
+
+class RandKMaxNormReducer(Reducer):
+    """
+    All reduce reducer with max norm compression of random K index.
+    All gathers norms, normalizing with max norm, all reduces sign array * xi vector.
+    """
+
+    def __init__(self, device, timer, K=10000, quantization_level=8):
+        super(RandKMaxNormReducer, self).__init__(device, timer)
+        self._quantization_level = quantization_level
+        self._K = K
+        self._indices_queue = []
+
+    def reduce(self, grad_in, grad_out):
+        bits_communicated = 0
+        compressor = RandKMaxNormCompressor(self._device, self._quantization_level)
+        
+        with self._timer("reduce.flat_pack"):
+            flat_grad = TensorBuffer(grad_in)
+
+        if not self._indices_queue:
+            self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
+            self._indices_queue = list(self._indices_queue)
+
+        RandK_indices = self._indices_queue.pop().numpy()
+        RandK_flat_grad = flat_grad.buffer[RandK_indices]
+
+        with self._timer("reduce.norm", verbosity=2):
+            norm = RandK_flat_grad.abs().max()
+
+            if self.n_workers > 1:
+                collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
+                norms_gather_op = torch.distributed.all_gather(collected_norms, norm, async_op=True)
+
+                norms_gather_op.wait()
+                max_norm = max(collected_norms)
+            else:
+                max_norm = norm
+
+        with self._timer("reduce.compress", verbosity=2):
+            sign_xi_array = compressor.compress(max_norm, RandK_flat_grad)
+
+        with self._timer("reduce.reduce.vector", verbosity=2):
+            if self.n_workers > 1:
+                sign_xi_reduce_op = torch.distributed.all_reduce(sign_xi_array, async_op=True)
+                sign_xi_reduce_op.wait()
+                sign_xi_array.true_divide(self.n_workers)
+            else:
+                sign_xi_array = sign_xi_array
+
+        with self._timer("reduce.decompress", verbosity=2):
+            RandK_flat_grad = compressor.decompress(max_norm, sign_xi_array)
+
+        flat_grad.buffer[RandK_indices] = RandK_flat_grad
 
         with self._timer("reduce.setgrad", verbosity=2):
             for out in grad_out:

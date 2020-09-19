@@ -23,7 +23,7 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
-    # architecture="LeNet",
+    K=50000,
     reducer="RandKMaxNormReducer",
     quantization_level=6,
     seed=42,
@@ -58,7 +58,8 @@ def train(local_rank, log_path):
     timer = Timer(verbosity_level=config["log_verbosity"])
 
     # reducer = globals()[config['reducer']](device, timer)
-    reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
+    # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
+    reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
 
     lr = config['lr']
     bits_communicated = 0
@@ -116,7 +117,7 @@ def train(local_rank, log_path):
 
     if local_rank == 0:
         print(timer.summary())
-        logger.summary_writer(model, timer)
+        logger.summary_writer(model, timer, bits_communicated)
 
 
 if __name__ == '__main__':

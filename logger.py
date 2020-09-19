@@ -42,7 +42,7 @@ class Logger:
         self._log_dict['loss'][epoch] = epoch_metrics.values()['cross_entropy_loss']
         self._log_dict['time'][epoch] = (datetime.datetime.now() - self._start).total_seconds()
 
-    def summary_writer(self, model, timer):
+    def summary_writer(self, model, timer, bits_communicated):
         timer.save_summary(f'{self._log_path}/timer_summary.json')
 
         with open(f'{self._log_path}/success.txt', 'w') as file:
@@ -51,6 +51,8 @@ class Logger:
             file.write(f"Training parameters\n")
             list_of_strings = [f'{key} : {value}' for key, value in self._config.items()]
             [file.write(f'{string}\n') for string in list_of_strings]
+
+            file.write(f'Bits communicated: {bits_communicated}')
 
         np.save(f'{self._log_path}/log_dict.npy', self._log_dict)
         torch.save(model.state_dict(), f'{self._log_path}/model.pt')

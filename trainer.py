@@ -12,7 +12,7 @@ from reducer import (
     NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer,
     QSGDWECModReducer, TernGradReducer, TernGradModReducer,
     QSGDMaxNormReducer, QSGDBPReducer, QSGDBPAllReducer,
-    RandKMaxNormReducer
+    GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer
 )
 from timer import Timer
 from logger import Logger
@@ -23,8 +23,8 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
-    K=50000,
-    reducer="RandKMaxNormReducer",
+    K=20000,
+    reducer="MaxNormGlobalRandKReducer",
     quantization_level=6,
     seed=42,
     log_verbosity=2,

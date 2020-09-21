@@ -6,7 +6,7 @@ num_epochs : 150
 batch_size : 128
 architecture : ResNet50
 K : 20000
-reducer : RandKMaxNormReducer
+reducer : GlobalRandKMaxNormReducer
 quantization_level : 6
 seed : 42
 log_verbosity : 2

@@ -157,6 +157,11 @@ class QSGDWECCompressor:
         self._device = device
         self._quantization_level = quantization_level
 
+        if quantization_level < 8:
+            self._dtype = torch.int8
+        else:
+            self._dtype = torch.int32
+
     def compress(self, tensor):
         s = (1 << self._quantization_level) - 1
 
@@ -172,7 +177,7 @@ class QSGDWECCompressor:
 
         mask = torch.bernoulli(prob_array)
         xi_array = l_array_floored + mask
-        xi_array = xi_array.to(dtype=torch.int32)
+        xi_array = xi_array.to(dtype=self._dtype)
 
         norm = norm / s
 
@@ -192,6 +197,11 @@ class QSGDWECModCompressor:
         self._device = device
         self._quantization_level = quantization_level
 
+        if quantization_level < 8:
+            self._dtype = torch.int8
+        else:
+            self._dtype = torch.int32
+
     def compress(self, tensor):
         s = (1 << self._quantization_level) - 1
 
@@ -209,7 +219,7 @@ class QSGDWECModCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = sign_array * xi_array
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         norm = norm / s
 
@@ -280,6 +290,11 @@ class QSGDMaxNormCompressor:
         self._device = device
         self._quantization_level = quantization_level
 
+        if quantization_level < 8:
+            self._dtype = torch.int8
+        else:
+            self._dtype = torch.int32
+
     def compress(self, norm, tensor):
         s = (1 << self._quantization_level) - 1
 
@@ -294,12 +309,14 @@ class QSGDMaxNormCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = sign_array * xi_array
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
 
     def decompress(self, norm, sign_xi_array):
-        return norm * sign_xi_array
+        s = (1 << self._quantization_level) - 1
+
+        return norm / s * sign_xi_array
 
 
 class QSGDBPCompressor:
@@ -391,3 +408,83 @@ class QSGDBPAllReduceCompressor:
         sign_xi_unpacked = bitpacking.unpacking(sign_xi_array.to('cpu')).to(device=self._device)
 
         return norm * sign_xi_unpacked
+
+
+class GlobalRandKMaxNormCompressor:
+    """
+    RandK compressor with max norm.
+    Normalizing with max norm among thw workers.
+    Code: sign array * xi array.
+    """
+
+    def __init__(self, device, quantization_level=8):
+        self._device = device
+        self._quantization_level = quantization_level
+
+        if quantization_level < 8:
+            self._dtype = torch.int8
+        else:
+            self._dtype = torch.int32
+
+    def compress(self, norm, tensor):
+        s = (1 << self._quantization_level) - 1
+
+        sign_array = torch.sign(tensor).to(dtype=torch.int8)
+
+        l_array = torch.abs(tensor) / norm * s
+        l_array_floored = l_array.to(dtype=torch.int32)
+        prob_array = l_array - l_array_floored
+        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+        mask = torch.bernoulli(prob_array)
+        xi_array = l_array_floored + mask
+        xi_array = xi_array.to(dtype=torch.int32)
+
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+
+        return sign_xi_array
+
+    def decompress(self, norm, sign_xi_array):
+        s = (1 << self._quantization_level) - 1
+
+        return norm / s * sign_xi_array
+
+
+class MaxNormGlobalRandKCompressor:
+    """
+    Compressor with max norm.
+    Normalizing with max norm among thw workers.
+    Code: sign array * xi array.
+    """
+
+    def __init__(self, device, quantization_level=8):
+        self._device = device
+        self._quantization_level = quantization_level
+
+        if quantization_level < 8:
+            self._dtype = torch.int8
+        else:
+            self._dtype = torch.int32
+
+    def compress(self, norm, tensor):
+        s = (1 << self._quantization_level) - 1
+
+        sign_array = torch.sign(tensor).to(dtype=torch.int8)
+
+        l_array = torch.abs(tensor) / norm * s
+        l_array_floored = l_array.to(dtype=torch.int32)
+        prob_array = l_array - l_array_floored
+        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+        mask = torch.bernoulli(prob_array)
+        xi_array = l_array_floored + mask
+        xi_array = xi_array.to(dtype=torch.int32)
+
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+
+        return sign_xi_array
+
+    def decompress(self, norm, sign_xi_array):
+        s = (1 << self._quantization_level) - 1
+
+        return norm / s * sign_xi_array

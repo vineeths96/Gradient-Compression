@@ -12,7 +12,8 @@ from reducer import (
     NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer,
     QSGDWECModReducer, TernGradReducer, TernGradModReducer,
     QSGDMaxNormReducer, QSGDBPReducer, QSGDBPAllReducer,
-    GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer
+    GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer,
+    NUQSGDModReducer, NUQSGDMaxNormReducer
 )
 from timer import Timer
 from logger import Logger
@@ -22,9 +23,10 @@ config = dict(
     distributed_backend="nccl",
     num_epochs=150,
     batch_size=128,
+    # batch_size=64,
     architecture="ResNet50",
-    K=20000,
-    reducer="MaxNormGlobalRandKReducer",
+    # K=20000,
+    reducer="NUQSGDMaxNormReducer",
     quantization_level=6,
     seed=42,
     log_verbosity=2,
@@ -58,8 +60,8 @@ def train(local_rank, log_path):
     timer = Timer(verbosity_level=config["log_verbosity"])
 
     # reducer = globals()[config['reducer']](device, timer)
-    # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
-    reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
+    reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
+    # reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
 
     lr = config['lr']
     bits_communicated = 0

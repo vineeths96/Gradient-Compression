@@ -7,7 +7,7 @@ def plot_loss_curves(log_path):
     plt.figure(figsize=[10, 7])
 
     experiments = os.listdir(log_path)
-    experiments = ['2020_08_15_10_51_22_ResNet50', '2020_08_16_19_17_28_ResNet50', '2020_09_18_11_02_23_ResNet50']
+    experiments = ['2020_08_15_10_51_22_ResNet50', '2020_08_16_19_17_28_ResNet50', '2020_09_21_13_05_30_ResNet50', '2020_09_18_19_42_36_ResNet50']
     for experiment in experiments:
         reducer = None
         quant_level = None
@@ -42,7 +42,7 @@ def plot_top1_accuracy_curves(log_path):
     plt.figure(figsize=[10, 7])
 
     experiments = os.listdir(log_path)
-    experiments = ['2020_08_15_10_51_22_ResNet50', '2020_08_16_19_17_28_ResNet50', '2020_09_18_11_02_23_ResNet50']
+    experiments = ['2020_08_15_10_51_22_ResNet50', '2020_08_16_19_17_28_ResNet50', '2020_09_21_13_05_30_ResNet50', '2020_09_18_19_42_36_ResNet50']
     for experiment in experiments:
         reducer = None
         quant_level = None
@@ -77,7 +77,7 @@ def plot_top5_accuracy_curves(log_path):
     plt.figure(figsize=[10, 7])
 
     experiments = os.listdir(log_path)
-    experiments = ['2020_08_15_10_51_22_ResNet50', '2020_08_16_19_17_28_ResNet50', '2020_09_18_11_02_23_ResNet50']
+    experiments = ['2020_08_15_10_51_22_ResNet50', '2020_08_16_19_17_28_ResNet50', '2020_09_21_13_05_30_ResNet50', '2020_09_18_19_42_36_ResNet50']
     for experiment in experiments:
         reducer = None
         quant_level = None
@@ -112,7 +112,7 @@ def plot_time_per_batch_curves(log_path):
     plt.figure(figsize=[10, 7])
 
     experiments = os.listdir(log_path)
-    experiments = ['2020_08_15_10_51_22_ResNet50', '2020_08_16_19_17_28_ResNet50', '2020_09_18_11_02_23_ResNet50']
+    experiments = ['2020_08_15_10_51_22_ResNet50', '2020_08_16_19_17_28_ResNet50', '2020_09_21_13_05_30_ResNet50', '2020_09_18_19_42_36_ResNet50']
     for experiment in experiments:
         reducer = None
         quant_level = None

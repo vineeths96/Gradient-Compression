@@ -973,3 +973,86 @@ class NUQSGDMaxNormReducer(Reducer):
 
     def n_bits(self, tensor):
         return 8 * tensor.nelement() * tensor.element_size()
+
+
+class TopKReducer(Reducer):
+    """
+    TopK reducer with K most important gradient updates.
+    All gathers values and indices of top-K from each worker and updates.
+    """
+
+    def __init__(self, device, timer, K=1000):
+        super(TopKReducer, self).__init__(device, timer)
+        self._K = K
+        self._memory = []
+
+    def reduce(self, grad_in, grad_out):
+        bits_communicated = 0
+
+        if not self._memory:
+            self._memory = [torch.zeros_like(grad_tensor) for grad_tensor in grad_in]
+        else:
+            for grad, memory in zip(grad_in, self._memory):
+                grad.add_(other=memory, alpha=1)
+
+        with self._timer("reduce.flatpack", verbosity=2):
+            flatgrad_size = 0
+            tensor_topK_indices = [0]
+            for tensor in grad_in:
+                top_size = min(tensor.nelement(), self._K)
+                flatgrad_size += top_size
+                tensor_topK_indices.append(tensor_topK_indices[-1] + top_size)
+
+            flatgrad_start_indices = tensor_topK_indices[:-1]
+            flatgrad_end_indices = tensor_topK_indices[1:]
+            flat_values = torch.empty(flatgrad_size, device=self._device)
+            flat_positions = torch.empty(flatgrad_size, device=self._device, dtype=torch.int)
+
+        with self._timer("reduce.topk", verbosity=2):
+            for tensor, start, end in zip(grad_in, flatgrad_start_indices, flatgrad_end_indices):
+                top_size = min(tensor.nelement(), self._K)
+                _, positions = torch.topk(tensor.view(-1).abs(), top_size, sorted=False)
+                values = tensor.view(-1)[positions].contiguous()
+                flat_values[start:end] = values
+                flat_positions[start:end] = positions
+
+        with self._timer("reduce.memory", verbosity=2):
+            for tensor, mem, start, end in zip(grad_in, self._memory, flatgrad_start_indices, flatgrad_end_indices):
+                positions = flat_positions[start:end]
+                mem.data[:] = tensor
+                mem.view(-1)[positions.long()] = 0.0
+
+        with self._timer("reduce.gather", verbosity=2):
+            if self.n_workers > 1:
+                worker_values = [torch.empty_like(flat_values) for _ in range(self.n_workers)]
+                worker_positions = [torch.empty_like(flat_positions) for _ in range(self.n_workers)]
+                values_gather_op = torch.distributed.all_gather(tensor_list=worker_values,
+                                                                tensor=flat_values,
+                                                                async_op=True)
+
+                positions_gather_op = torch.distributed.all_gather(tensor_list=worker_positions,
+                                                                   tensor=flat_positions,
+                                                                   async_op=True)
+
+                values_gather_op.wait()
+                positions_gather_op.wait()
+            else:
+                worker_values = [flat_values]
+                worker_positions = [flat_positions]
+
+            bits_communicated += self.n_bits(flat_values) + self.n_bits(flat_positions)
+
+        with self._timer("reduce.combine", verbosity=2):
+            for out, start, end in zip(grad_out, flatgrad_start_indices, flatgrad_end_indices):
+                out[:] = 0
+
+                for pos, val in zip(worker_positions, worker_values):
+                    positions = pos[start:end]
+                    values = val[start:end]
+                    out.view(-1)[positions.long()].add_(1.0 / self.n_workers, values)
+                    # out.view(-1)[positions.long()] += values / self.n_workers
+
+        return bits_communicated
+
+    def n_bits(self, tensor):
+        return 8 * tensor.nelement() * tensor.element_size()

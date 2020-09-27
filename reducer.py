@@ -533,6 +533,8 @@ class QSGDMaxNormReducer(Reducer):
             else:
                 sign_xi_array = sign_xi_array
 
+        bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
+
         with self._timer("reduce.decompress", verbosity=2):
             flat_grad.buffer = compressor.decompress(max_norm, sign_xi_array)
 
@@ -544,8 +546,6 @@ class QSGDMaxNormReducer(Reducer):
                 # TODO Average or Sum
                 grad = grad.to(self._device)
                 out.add_(other=grad, alpha=1)
-
-            bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
 
         return bits_communicated
 
@@ -678,6 +678,8 @@ class QSGDBPAllReducer(Reducer):
             else:
                 sign_xi_array = sign_xi_array
 
+        bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
+
         with self._timer("reduce.decompress", verbosity=2):
             flat_grad.buffer = compressor.decompress(max_norm, sign_xi_array)
 
@@ -689,8 +691,6 @@ class QSGDBPAllReducer(Reducer):
                 # TODO Average or Sum
                 grad = grad.to(self._device)
                 out.add_(other=grad, alpha=1)
-
-            bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
 
         return bits_communicated
 
@@ -750,6 +750,8 @@ class GlobalRandKMaxNormReducer(Reducer):
             else:
                 sign_xi_array = sign_xi_array
 
+        bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
+
         with self._timer("reduce.decompress", verbosity=2):
             RandK_decompressed = compressor.decompress(max_norm, sign_xi_array)
 
@@ -763,8 +765,6 @@ class GlobalRandKMaxNormReducer(Reducer):
                 # TODO Average or Sum
                 grad = grad.to(self._device)
                 out.add_(other=grad, alpha=1)
-
-            bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
 
         return bits_communicated
 
@@ -827,6 +827,8 @@ class MaxNormGlobalRandKReducer(Reducer):
             else:
                 sign_xi_array = sign_xi_array
 
+        bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
+
         with self._timer("reduce.decompress", verbosity=2):
             RandK_decompressed = compressor.decompress(max_norm, sign_xi_array)
 
@@ -840,8 +842,6 @@ class MaxNormGlobalRandKReducer(Reducer):
                 # TODO Average or Sum
                 grad = grad.to(self._device)
                 out.add_(other=grad, alpha=1)
-
-            bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
 
         return bits_communicated
 
@@ -955,6 +955,8 @@ class NUQSGDMaxNormReducer(Reducer):
             else:
                 sign_xi_array = sign_xi_array
 
+        bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
+
         with self._timer("reduce.decompress", verbosity=2):
             flat_grad.buffer = compressor.decompress(max_norm, sign_xi_array)
 
@@ -966,8 +968,6 @@ class NUQSGDMaxNormReducer(Reducer):
                 # TODO Average or Sum
                 grad = grad.to(self._device)
                 out.add_(other=grad, alpha=1)
-
-            bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
 
         return bits_communicated
 
@@ -985,7 +985,6 @@ class TopKReducer(Reducer):
         super(TopKReducer, self).__init__(device, timer)
         self._K = K
         self._memory = []
-        self._compression = compression
 
     def reduce(self, grad_in, grad_out):
         bits_communicated = 0
@@ -997,20 +996,20 @@ class TopKReducer(Reducer):
                 grad.add_(other=memory, alpha=1)
 
         with self._timer("reduce.flatpack", verbosity=2):
-            flatgrad_size = 0
+            flat_grad_size = 0
             tensor_topK_indices = [0]
             for tensor in grad_in:
                 top_size = min(tensor.nelement(), self._K)
-                flatgrad_size += top_size
+                flat_grad_size += top_size
                 tensor_topK_indices.append(tensor_topK_indices[-1] + top_size)
 
-            flatgrad_start_indices = tensor_topK_indices[:-1]
-            flatgrad_end_indices = tensor_topK_indices[1:]
-            flat_values = torch.empty(flatgrad_size, device=self._device)
-            flat_positions = torch.empty(flatgrad_size, device=self._device, dtype=torch.int)
+            flat_grad_start_indices = tensor_topK_indices[:-1]
+            flat_grad_end_indices = tensor_topK_indices[1:]
+            flat_values = torch.empty(flat_grad_size, device=self._device)
+            flat_positions = torch.empty(flat_grad_size, device=self._device, dtype=torch.int)
 
         with self._timer("reduce.topk", verbosity=2):
-            for tensor, start, end in zip(grad_in, flatgrad_start_indices, flatgrad_end_indices):
+            for tensor, start, end in zip(grad_in, flat_grad_start_indices, flat_grad_end_indices):
                 top_size = min(tensor.nelement(), self._K)
                 _, positions = torch.topk(tensor.view(-1).abs(), top_size, sorted=False)
                 values = tensor.view(-1)[positions].contiguous()
@@ -1018,36 +1017,36 @@ class TopKReducer(Reducer):
                 flat_positions[start:end] = positions
 
         with self._timer("reduce.memory", verbosity=2):
-            for tensor, mem, start, end in zip(grad_in, self._memory, flatgrad_start_indices, flatgrad_end_indices):
+            for tensor, mem, start, end in zip(grad_in, self._memory, flat_grad_start_indices, flat_grad_end_indices):
                 positions = flat_positions[start:end]
                 mem[:] = tensor
                 mem.view(-1)[positions.long()] = 0.0
 
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
-                worker_values = [torch.empty_like(flat_values) for _ in range(self.n_workers)]
-                worker_positions = [torch.empty_like(flat_positions) for _ in range(self.n_workers)]
-                values_gather_op = torch.distributed.all_gather(tensor_list=worker_values,
+                collected_values = [torch.empty_like(flat_values) for _ in range(self.n_workers)]
+                values_gather_op = torch.distributed.all_gather(tensor_list=collected_values,
                                                                 tensor=flat_values,
                                                                 async_op=True)
 
-                positions_gather_op = torch.distributed.all_gather(tensor_list=worker_positions,
+                collected_positions = [torch.empty_like(flat_positions) for _ in range(self.n_workers)]
+                positions_gather_op = torch.distributed.all_gather(tensor_list=collected_positions,
                                                                    tensor=flat_positions,
                                                                    async_op=True)
 
                 values_gather_op.wait()
                 positions_gather_op.wait()
             else:
-                worker_values = [flat_values]
-                worker_positions = [flat_positions]
+                collected_values = [flat_values]
+                collected_positions = [flat_positions]
 
-            bits_communicated += self.n_bits(flat_values) + self.n_bits(flat_positions)
+        bits_communicated += self.n_bits(flat_values) + self.n_bits(flat_positions)
 
         with self._timer("reduce.combine", verbosity=2):
-            for out, start, end in zip(grad_out, flatgrad_start_indices, flatgrad_end_indices):
+            for out, start, end in zip(grad_out, flat_grad_start_indices, flat_grad_end_indices):
                 out[:] = 0
 
-                for pos, val in zip(worker_positions, worker_values):
+                for pos, val in zip(collected_positions, collected_values):
                     positions = pos[start:end]
                     values = val[start:end]
                     out.view(-1)[positions.long()] += values / self.n_workers
@@ -1066,8 +1065,8 @@ class TopKReducerRatio(Reducer):
 
     def __init__(self, device, timer, compression=1/100):
         super(TopKReducerRatio, self).__init__(device, timer)
-        self._memory = []
         self._compression = compression
+        self._memory = []
 
     def reduce(self, grad_in, grad_out):
         bits_communicated = 0
@@ -1079,20 +1078,20 @@ class TopKReducerRatio(Reducer):
                 grad.add_(other=memory, alpha=1)
 
         with self._timer("reduce.flatpack", verbosity=2):
-            flatgrad_size = 0
+            flat_grad_size = 0
             tensor_topK_indices = [0]
             for tensor in grad_in:
                 top_size = max(1, int(self._compression * tensor.nelement()))
-                flatgrad_size += top_size
+                flat_grad_size += top_size
                 tensor_topK_indices.append(tensor_topK_indices[-1] + top_size)
 
-            flatgrad_start_indices = tensor_topK_indices[:-1]
-            flatgrad_end_indices = tensor_topK_indices[1:]
-            flat_values = torch.empty(flatgrad_size, device=self._device)
-            flat_positions = torch.empty(flatgrad_size, device=self._device, dtype=torch.int)
+            flat_grad_start_indices = tensor_topK_indices[:-1]
+            flat_grad_end_indices = tensor_topK_indices[1:]
+            flat_values = torch.empty(flat_grad_size, device=self._device)
+            flat_positions = torch.empty(flat_grad_size, device=self._device, dtype=torch.int)
 
         with self._timer("reduce.topk", verbosity=2):
-            for tensor, start, end in zip(grad_in, flatgrad_start_indices, flatgrad_end_indices):
+            for tensor, start, end in zip(grad_in, flat_grad_start_indices, flat_grad_end_indices):
                 top_size = max(1, int(self._compression * tensor.nelement()))
                 _, positions = torch.topk(tensor.view(-1).abs(), top_size, sorted=False)
                 values = tensor.view(-1)[positions].contiguous()
@@ -1100,39 +1099,183 @@ class TopKReducerRatio(Reducer):
                 flat_positions[start:end] = positions
 
         with self._timer("reduce.memory", verbosity=2):
-            for tensor, mem, start, end in zip(grad_in, self._memory, flatgrad_start_indices, flatgrad_end_indices):
+            for tensor, mem, start, end in zip(grad_in, self._memory, flat_grad_start_indices, flat_grad_end_indices):
                 positions = flat_positions[start:end]
                 mem[:] = tensor
                 mem.view(-1)[positions.long()] = 0.0
 
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
-                worker_values = [torch.empty_like(flat_values) for _ in range(self.n_workers)]
-                worker_positions = [torch.empty_like(flat_positions) for _ in range(self.n_workers)]
-                values_gather_op = torch.distributed.all_gather(tensor_list=worker_values,
+                collected_values = [torch.empty_like(flat_values) for _ in range(self.n_workers)]
+                values_gather_op = torch.distributed.all_gather(tensor_list=collected_values,
                                                                 tensor=flat_values,
                                                                 async_op=True)
 
-                positions_gather_op = torch.distributed.all_gather(tensor_list=worker_positions,
+                collected_positions = [torch.empty_like(flat_positions) for _ in range(self.n_workers)]
+                positions_gather_op = torch.distributed.all_gather(tensor_list=collected_positions,
                                                                    tensor=flat_positions,
                                                                    async_op=True)
 
                 values_gather_op.wait()
                 positions_gather_op.wait()
             else:
-                worker_values = [flat_values]
-                worker_positions = [flat_positions]
+                collected_values = [flat_values]
+                collected_positions = [flat_positions]
 
-            bits_communicated += self.n_bits(flat_values) + self.n_bits(flat_positions)
+        bits_communicated += self.n_bits(flat_values) + self.n_bits(flat_positions)
 
         with self._timer("reduce.combine", verbosity=2):
-            for out, start, end in zip(grad_out, flatgrad_start_indices, flatgrad_end_indices):
+            for out, start, end in zip(grad_out, flat_grad_start_indices, flat_grad_end_indices):
                 out[:] = 0
 
-                for pos, val in zip(worker_positions, worker_values):
+                for pos, val in zip(collected_positions, collected_values):
                     positions = pos[start:end]
                     values = val[start:end]
                     out.view(-1)[positions.long()] += values / self.n_workers
+
+        return bits_communicated
+
+    def n_bits(self, tensor):
+        return 8 * tensor.nelement() * tensor.element_size()
+
+
+class GlobalTopKReducer(Reducer):
+    """
+    TopK reducer with K most important gradient updates global.
+    All gathers values and indices of top-K from each worker and updates.
+    """
+
+    def __init__(self, device, timer, K=10000):
+        super(GlobalTopKReducer, self).__init__(device, timer)
+        self._K = K
+        self._memory = []
+
+    def reduce(self, grad_in, grad_out):
+        bits_communicated = 0
+
+        with self._timer("reduce.flat_pack"):
+            flat_grad = TensorBuffer(grad_in)
+
+        if not self._memory:
+            self._memory = [torch.zeros_like(grad_tensor) for grad_tensor in grad_in]
+            self._memory = TensorBuffer(self._memory)
+        else:
+            flat_grad.buffer[:] += self._memory.buffer
+
+        top_size = min(flat_grad.buffer.nelement(), self._K)
+
+        with self._timer("reduce.topk", verbosity=2):
+            _, positions = torch.topk(flat_grad.buffer.abs(), top_size, sorted=False)
+            values = flat_grad.buffer[positions].contiguous()
+
+        with self._timer("reduce.set_memory", verbosity=2):
+            self._memory.buffer[:] = flat_grad.buffer
+            self._memory.buffer[positions] = 0.0
+
+        with self._timer("reduce.gather", verbosity=2):
+            if self.n_workers > 1:
+                collected_values = [torch.empty_like(values) for _ in range(self.n_workers)]
+                values_gather_op = torch.distributed.all_gather(tensor_list=collected_values,
+                                                                tensor=values,
+                                                                async_op=True)
+
+                collected_positions = [torch.empty_like(positions) for _ in range(self.n_workers)]
+                positions_gather_op = torch.distributed.all_gather(tensor_list=collected_positions,
+                                                                   tensor=positions,
+                                                                   async_op=True)
+
+                values_gather_op.wait()
+                positions_gather_op.wait()
+            else:
+                collected_values = [values]
+                collected_positions = [positions]
+
+        bits_communicated += self.n_bits(values) + self.n_bits(positions)
+
+        with self._timer("reduce.combine", verbosity=2):
+            for pos, val in zip(collected_positions, collected_values):
+                flat_grad.buffer[pos] += val / self.n_workers
+
+        with self._timer("reduce.setgrad", verbosity=2):
+            for out in grad_out:
+                out[:] = 0.0
+
+            for grad, out in zip(flat_grad, grad_out):
+                # TODO Average or Sum
+                grad = grad.to(self._device)
+                out.add_(other=grad, alpha=1)
+
+        return bits_communicated
+
+    def n_bits(self, tensor):
+        return 8 * tensor.nelement() * tensor.element_size()
+
+
+class GlobalTopKReducerRatio(Reducer):
+    """
+    TopK reducer with ratio most important gradient updates global.
+    All gathers values and indices of top-K from each worker and updates.
+    """
+
+    def __init__(self, device, timer, compression=1/100):
+        super(GlobalTopKReducerRatio, self).__init__(device, timer)
+        self._compression = compression
+        self._memory = []
+
+    def reduce(self, grad_in, grad_out):
+        bits_communicated = 0
+
+        with self._timer("reduce.flat_pack"):
+            flat_grad = TensorBuffer(grad_in)
+
+        if not self._memory:
+            self._memory = [torch.zeros_like(grad_tensor) for grad_tensor in grad_in]
+            self._memory = TensorBuffer(self._memory)
+        else:
+            flat_grad.buffer[:] += self._memory.buffer
+
+        top_size = max(1, int(self._compression * flat_grad.buffer.nelement()))
+
+        with self._timer("reduce.topk", verbosity=2):
+            _, positions = torch.topk(flat_grad.buffer.abs(), top_size, sorted=False)
+            values = flat_grad.buffer[positions].contiguous()
+
+        with self._timer("reduce.set_memory", verbosity=2):
+            self._memory.buffer[:] = flat_grad.buffer
+            self._memory.buffer[positions] = 0.0
+
+        with self._timer("reduce.gather", verbosity=2):
+            if self.n_workers > 1:
+                collected_values = [torch.empty_like(values) for _ in range(self.n_workers)]
+                values_gather_op = torch.distributed.all_gather(tensor_list=collected_values,
+                                                                tensor=values,
+                                                                async_op=True)
+
+                collected_positions = [torch.empty_like(positions) for _ in range(self.n_workers)]
+                positions_gather_op = torch.distributed.all_gather(tensor_list=collected_positions,
+                                                                   tensor=positions,
+                                                                   async_op=True)
+
+                values_gather_op.wait()
+                positions_gather_op.wait()
+            else:
+                collected_values = [values]
+                collected_positions = [positions]
+
+        bits_communicated += self.n_bits(values) + self.n_bits(positions)
+
+        with self._timer("reduce.combine", verbosity=2):
+            for pos, val in zip(collected_positions, collected_values):
+                flat_grad.buffer[pos] += val / self.n_workers
+
+        with self._timer("reduce.setgrad", verbosity=2):
+            for out in grad_out:
+                out[:] = 0.0
+
+            for grad, out in zip(flat_grad, grad_out):
+                # TODO Average or Sum
+                grad = grad.to(self._device)
+                out.add_(other=grad, alpha=1)
 
         return bits_communicated
 

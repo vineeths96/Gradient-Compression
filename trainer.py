@@ -14,7 +14,7 @@ from reducer import (
     QSGDMaxNormReducer, QSGDBPReducer, QSGDBPAllReducer,
     GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer,
     NUQSGDModReducer, NUQSGDMaxNormReducer,
-    TopKReducer, TopKReducerRatio
+    TopKReducer, TopKReducerRatio, GlobalTopKReducer, GlobalTopKReducerRatio,
 )
 from timer import Timer
 from logger import Logger
@@ -27,7 +27,7 @@ config = dict(
     architecture="ResNet50",
     # K=10000,
     compression=1/1000,
-    reducer="TopKReducerRatio",
+    reducer="GlobalTopKReducerRatio",
     # quantization_level=6,
     seed=42,
     log_verbosity=2,

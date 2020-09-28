@@ -1,0 +1,13 @@
+Training completed at 2020-09-27 22:52:46.314713
+
+Training parameters
+distributed_backend : nccl
+num_epochs : 150
+batch_size : 128
+architecture : ResNet50
+compression : 0.01
+reducer : GlobalTopKReducerRatio
+seed : 42
+log_verbosity : 2
+lr : 0.01
+Bits communicated: 660464064000

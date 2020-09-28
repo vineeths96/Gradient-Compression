@@ -12,7 +12,9 @@ from reducer import (
     NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer,
     QSGDWECModReducer, TernGradReducer, TernGradModReducer,
     QSGDMaxNormReducer, QSGDBPReducer, QSGDBPAllReducer,
-    GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer
+    GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer,
+    NUQSGDModReducer, NUQSGDMaxNormReducer,
+    TopKReducer, TopKReducerRatio, GlobalTopKReducer, GlobalTopKReducerRatio,
 )
 from timer import Timer
 from logger import Logger
@@ -23,9 +25,10 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
-    K=20000,
-    reducer="MaxNormGlobalRandKReducer",
-    quantization_level=6,
+    # K=10000,
+    compression=1/1000,
+    reducer="GlobalTopKReducerRatio",
+    # quantization_level=6,
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -59,7 +62,9 @@ def train(local_rank, log_path):
 
     # reducer = globals()[config['reducer']](device, timer)
     # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
-    reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
+    # reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
+    # reducer = globals()[config['reducer']](device, timer, K=config['K'])
+    reducer = globals()[config['reducer']](device, timer, compression=config['compression'])
 
     lr = config['lr']
     bits_communicated = 0
@@ -92,8 +97,6 @@ def train(local_rank, log_path):
                     bits_communicated += reducer.reduce(send_buffers, grads)
 
                 with timer("batch.step", epoch_frac, verbosity=2):
-                    # for param, grad in zip(model.parameters, grads):
-                    #     param.data.add_(other=grad, alpha=-lr)
                     optimizer.step()
 
         scheduler.step()

@@ -138,6 +138,8 @@ dmypy.json
 .ipynb_checkpoints/
 data/
 
+/logs/plot_logs/
+
 # Idea
 .idea/
 

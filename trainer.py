@@ -9,8 +9,9 @@ import torch.distributed as dist
 
 from model_dispatcher import CIFAR
 from reducer import (
-    NoneReducer, NoneAllReducer, QSGDReducer, QSGDWECReducer,
-    QSGDWECModReducer, TernGradReducer, TernGradModReducer,
+    NoneReducer, NoneAllReducer,
+    QSGDReducer, QSGDWECReducer, QSGDWECModReducer,
+    TernGradReducer, TernGradModReducer,
     QSGDMaxNormReducer, QSGDBPReducer, QSGDBPAllReducer,
     GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer,
     NUQSGDModReducer, NUQSGDMaxNormReducer,
@@ -24,7 +25,8 @@ config = dict(
     distributed_backend="nccl",
     num_epochs=150,
     batch_size=128,
-    architecture="ResNet50",
+    # architecture="ResNet50",
+    architecture="VGG16",
     # K=10000,
     compression=1/1000,
     reducer="GlobalTopKReducerRatio",

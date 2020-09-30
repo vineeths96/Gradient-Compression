@@ -2,8 +2,9 @@ import torch
 import torch.distributed
 
 from compressors import (
-    NoneCompressor, QSGDCompressor, QSGDWECCompressor,
-    QSGDWECModCompressor, TernGradCompressor, TernGradModCompressor,
+    NoneCompressor,
+    QSGDCompressor, QSGDWECCompressor, QSGDWECModCompressor,
+    TernGradCompressor, TernGradModCompressor,
     QSGDMaxNormCompressor, QSGDBPAllReduceCompressor, QSGDBPCompressor,
     GlobalRandKMaxNormCompressor, MaxNormGlobalRandKCompressor,
     NUQSGDModCompressor, NUQSGDMaxNormCompressor

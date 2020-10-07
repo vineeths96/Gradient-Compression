@@ -1,0 +1,12 @@
+Training completed at 2020-10-07 05:25:43.810893
+
+Training parameters
+distributed_backend : nccl
+num_epochs : 5
+batch_size : 128
+architecture : VGG16
+reducer : NoneAllReducer
+seed : 42
+log_verbosity : 2
+lr : 0.01
+Bits communicated: 459521899200

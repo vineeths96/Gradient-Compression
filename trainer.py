@@ -23,14 +23,13 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=150,
+    num_epochs=1,
     batch_size=128,
-    # architecture="ResNet50",
     architecture="VGG16",
     # K=10000,
-    compression=1/1000,
-    reducer="GlobalTopKReducerRatio",
+    # compression=1/1000,
     # quantization_level=6,
+    reducer="NoneAllReducer",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -62,11 +61,19 @@ def train(local_rank, log_path):
     device = torch.device(f'cuda:{local_rank}')
     timer = Timer(verbosity_level=config["log_verbosity"])
 
-    # reducer = globals()[config['reducer']](device, timer)
-    # reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
-    # reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
-    # reducer = globals()[config['reducer']](device, timer, K=config['K'])
-    reducer = globals()[config['reducer']](device, timer, compression=config['compression'])
+    if config['reducer'] in ["NoneReducer", "NoneAllReducer", "TernGradReducer", "TernGradModReducer"]:
+        reducer = globals()[config['reducer']](device, timer)
+    elif config['reducer'] in ["QSGDReducer", "QSGDWECReducer", "QSGDWECModReducer", "QSGDBPReducer",
+                               "QSGDBPAllReducer", "QSGDMaxNormReducer", "NUQSGDModReducer", "NUQSGDMaxNormReducer"]:
+        reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
+    elif config['reducer'] in ["GlobalRandKMaxNormReducer", "MaxNormGlobalRandKReducer"]:
+        reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
+    elif config['reducer'] in ["TopKReducer", "GlobalTopKReducer"]:
+        reducer = globals()[config['reducer']](device, timer, K=config['K'])
+    elif config['reducer'] in ["TopKReducerRatio", "GlobalTopKReducerRatio"]:
+        reducer = globals()[config['reducer']](device, timer, compression=config['compression'])
+    else:
+        raise NotImplementedError("Reducer method not implemented")
 
     lr = config['lr']
     bits_communicated = 0
@@ -74,8 +81,10 @@ def train(local_rank, log_path):
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
-    optimizer = optim.SGD(params=model.parameters, lr=lr)
-    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+    # optimizer = optim.SGD(params=model.parameters, lr=lr)
+    # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, nesterov=True)
+    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=100, gamma=0.1)
 
     for epoch in range(config['num_epochs']):
         if local_rank == 0:

@@ -575,3 +575,107 @@ class NUQSGDMaxNormCompressor:
         s = (1 << self._quantization_level)
 
         return norm / s * sign_h_array
+
+"""
+NUQ:
+1. Normalize
+2. x = Normalized x 2**8
+    if x <= 2 ** 6:
+        high = 1
+        use same
+    else:
+        x = Normalized * 2 ** 6
+        high = 0		
+        use encode
+
+3. MaxReduce ()
+    AllReduce ()
+    if high == 1:
+        update = MAX
+    else:
+        update = AVG
+4. Negative values abs()    
+"""
+
+
+class TLMaxNormCompressor:
+    """
+    Non Uniform Compressor with two levels of resolution.
+    Normalizing with max norm among thw workers.
+    Code: sign array * xi array.
+    """
+
+    def __init__(self, device, quantization_level=8):
+        self._device = device
+        self._quantization_level = quantization_level
+        self._dtype = torch.int8
+
+        # Restricted to < 8 bit quantization
+        """
+        if quantization_level < 8:
+            self._dtype = torch.int8
+        else:
+            self._dtype = torch.int32
+        """
+
+    def compress(self, norm, tensor):
+        lower_s = (1 << self._quantization_level)
+        higher_s = (1 << (self._quantization_level + 2))
+
+        sign_array = torch.sign(tensor).to(dtype=torch.int8)
+
+        l_array = torch.abs(tensor) / norm * s
+        l_array_floored = l_array.to(dtype=torch.int32)
+        prob_array = l_array - l_array_floored
+        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+        mask = torch.bernoulli(prob_array)
+        xi_array = l_array_floored + mask
+        xi_array = xi_array.to(dtype=torch.int32)
+
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+
+        return sign_xi_array
+
+    def decompress(self, norm, sign_xi_array):
+        s = (1 << self._quantization_level) - 1
+
+        return norm / s * sign_xi_array
+
+"""
+# Under development
+q = torch.randn(10)
+lower_s = 1 << 6
+higher_s = 1 << (6+2)
+
+norm = q.norm()
+sign_array = torch.sign(q)
+
+l_array = torch.abs(q) / norm * lower_s
+l_array_floored = l_array.to(dtype=torch.int32)
+prob_array = l_array - l_array_floored
+prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+mask = torch.bernoulli(prob_array)
+lower_array = l_array_floored + mask
+lower_array = lower_array.to(dtype=torch.int32)
+
+l_array = torch.abs(q) / norm * higher_s
+l_array_floored = l_array.to(dtype=torch.int32)
+prob_array = l_array - l_array_floored
+prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+mask = torch.bernoulli(prob_array)
+higher_array = l_array_floored + mask
+higher_array = higher_array.to(dtype=torch.int32)
+
+higher_select = higher_array < lower_s
+mask_select_higher_indices = higher_array * higher_select
+mask_select_higher_indices[higher_select] = mask_select_higher_indices[higher_select].bitwise_or(128)
+
+lower_select = ~higher_select
+mask_select_lower_indices = lower_array * lower_select
+mask_select_lower_indices + mask_select_higher_indices
+two_level_vector = mask_select_lower_indices + mask_select_higher_indices
+sign_two_level_vector = (sign_array * two_level_vector).to(torch.int8)
+"""

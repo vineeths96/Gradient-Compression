@@ -235,7 +235,7 @@ def plot_time_breakdown(log_path):
     plt.show()
 
 
-def plot_scalability(log_path):
+def plot_time_scalability(log_path):
     time_labels = ['batch']
     # time_labels = ['batch.reduce']
     models = ['ResNet50', 'VGG16']
@@ -281,16 +281,78 @@ def plot_scalability(log_path):
                         label = reducer
 
                 time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
-                time_values = time_df[time_labels].values
+                num_iterations = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['n_events']
+                time_values = num_iterations * time_df[time_labels].values
 
                 plt.bar(events[GPU_ind] + (ind - num_experiments / 2) * width, time_values, width, label=label)
 
             plt.xticks(events, GPUs)
-            plt.ylabel("Average time per batch")
-            plt.title(f"Scalability {models[group_ind]}")
+            plt.ylabel("Time per epoch")
+            plt.title(f"Time Scalability {models[group_ind]}")
             plt.legend()
             plt.tight_layout()
-            plt.savefig(f"./plots/scalability_{models[group_ind]}.png")
+            plt.savefig(f"./plots/time_scalability_{models[group_ind]}.png")
+
+    plt.show()
+
+
+def plot_throughput_scalability(log_path):
+    time_labels = ['batch']
+    # time_labels = ['batch.reduce']
+    models = ['ResNet50', 'VGG16']
+
+    [plt.figure(num=ind, figsize=[10, 7]) for ind in range(len(models))]
+
+    GPUs = os.listdir(log_path)
+    GPUs.sort()
+
+    for GPU_ind, GPU in enumerate(GPUs):
+        experiment_groups = [glob.glob(f'{log_path}/{GPU}/*{model}') for model in models]
+        events = np.arange(len(GPUs))
+        width = 0.1
+
+        for group_ind, experiment_group in enumerate(experiment_groups):
+            plt.figure(num=group_ind)
+            experiment_group.sort()
+
+            num_experiments = (len(experiment_group) - 1)
+
+            for ind, experiment in enumerate(experiment_group):
+                reducer = None
+                quant_level = None
+                compression = None
+
+                with open(os.path.join(experiment, 'success.txt')) as file:
+                    for line in file:
+                        line = line.rstrip()
+                        if line.startswith("reducer"):
+                            reducer = line.split(': ')[-1]
+
+                        if line.startswith("quantization_level"):
+                            quant_level = line.split(': ')[-1]
+
+                        if line.startswith("compression"):
+                            compression = line.split(': ')[-1]
+
+                    if quant_level:
+                        label = ' '.join([reducer, quant_level, 'bits'])
+                    elif compression:
+                        label = ' '.join([reducer, 'K:', compression])
+                    else:
+                        label = reducer
+
+                time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
+                num_GPUs = int(GPUs[GPU_ind].split()[0])
+                time_values = (128 * num_GPUs) / time_df[time_labels].values
+
+                plt.bar(events[GPU_ind] + (ind - num_experiments / 2) * width, time_values, width, label=label)
+
+            plt.xticks(events, GPUs)
+            plt.ylabel("Images per sec")
+            plt.title(f"Throughput Scalability {models[group_ind]}")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(f"./plots/throughput_scalability_{models[group_ind]}.png")
 
     plt.show()
 
@@ -298,9 +360,10 @@ def plot_scalability(log_path):
 if __name__ == '__main__':
     root_log_path = './logs/plot_logs/'
 
-    plot_loss_curves(os.path.join(root_log_path, 'convergence'))
-    plot_top1_accuracy_curves(os.path.join(root_log_path, 'convergence'))
-    plot_top5_accuracy_curves(os.path.join(root_log_path, 'convergence'))
-    plot_time_per_batch_curves(os.path.join(root_log_path, 'convergence'))
-    plot_time_breakdown(os.path.join(root_log_path, 'time_breakdown'))
-    plot_scalability(os.path.join(root_log_path, 'scalability'))
+    # plot_loss_curves(os.path.join(root_log_path, 'convergence'))
+    # plot_top1_accuracy_curves(os.path.join(root_log_path, 'convergence'))
+    # plot_top5_accuracy_curves(os.path.join(root_log_path, 'convergence'))
+    # plot_time_per_batch_curves(os.path.join(root_log_path, 'convergence'))
+    # plot_time_breakdown(os.path.join(root_log_path, 'time_breakdown'))
+    plot_time_scalability(os.path.join(root_log_path, 'scalability'))
+    plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))

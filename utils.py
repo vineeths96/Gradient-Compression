@@ -1,8 +1,8 @@
 import os
+import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
 
 
 def plot_loss_curves(log_path):
@@ -179,60 +179,128 @@ def plot_time_per_batch_curves(log_path):
 
 
 def plot_time_breakdown(log_path):
-    plt.figure(figsize=[10, 7])
-
     time_labels = ['batch', 'batch.accumulate', 'batch.backward', 'batch.evaluate',
-                   'batch.forward', 'batch.reduce', 'batch.step', 'epoch_metrics.collect']
+                   'batch.forward', 'batch.reduce', 'batch.step']
 
-    experiments = os.listdir(log_path)
-    experiments.sort()
+    models = ['ResNet50', 'VGG16']
+
+    [plt.figure(num=ind, figsize=[10, 7]) for ind in range(len(models))]
+    experiment_groups = [glob.glob(f'{log_path}/*{model}') for model in models]
 
     events = np.arange(len(time_labels))
-    num_experiments = (len(experiments) - 1)
     width = 0.15
 
-    for ind, experiment in enumerate(experiments):
-        reducer = None
-        quant_level = None
-        compression = None
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        plt.figure(num=group_ind)
+        experiment_group.sort()
 
-        with open(os.path.join(log_path, experiment, 'success.txt')) as file:
-            for line in file:
-                line = line.rstrip()
-                if line.startswith("reducer"):
-                    reducer = line.split(': ')[-1]
+        num_experiments = (len(experiment_group) - 1)
 
-                if line.startswith("quantization_level"):
-                    quant_level = line.split(': ')[-1]
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            compression = None
 
-                if line.startswith("compression"):
-                    compression = line.split(': ')[-1]
+            with open(os.path.join(experiment, 'success.txt')) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = line.split(': ')[-1]
 
-            if quant_level:
-                label = ' '.join([reducer, quant_level, 'bits'])
-            elif compression:
-                label = ' '.join([reducer, 'K:', compression])
-            else:
-                label = reducer
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(': ')[-1]
 
-        time_df = pd.read_json(os.path.join(log_path, experiment, 'timer_summary.json')).loc['average_duration']
-        time_values = time_df[time_labels].values
+                    if line.startswith("compression"):
+                        compression = line.split(': ')[-1]
 
-        plt.bar(events + (ind - num_experiments / 2) * width, time_values, width, label=label)
+                if quant_level:
+                    label = ' '.join([reducer, quant_level, 'bits'])
+                elif compression:
+                    label = ' '.join([reducer, 'K:', compression])
+                else:
+                    label = reducer
 
-    plt.xticks(events, time_labels)
-    plt.xticks(rotation=90)
-    plt.ylabel("Average time")
-    plt.title("Time breakdown")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig("./plots/time_breakdown.png")
+            time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
+            time_values = time_df[time_labels].values
+
+            plt.bar(events + (ind - num_experiments / 2) * width, time_values, width, label=label)
+
+        plt.xticks(events, time_labels)
+        plt.ylabel("Average time")
+        plt.title(f"Time breakdown {models[group_ind]}")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f"./plots/time_breakdown_{models[group_ind]}.png")
+
+    plt.show()
+
+
+def plot_scalability(log_path):
+    time_labels = ['batch']
+    # time_labels = ['batch.reduce']
+    models = ['ResNet50', 'VGG16']
+
+    [plt.figure(num=ind, figsize=[10, 7]) for ind in range(len(models))]
+
+    GPUs = os.listdir(log_path)
+    GPUs.sort()
+
+    for GPU_ind, GPU in enumerate(GPUs):
+        experiment_groups = [glob.glob(f'{log_path}/{GPU}/*{model}') for model in models]
+        events = np.arange(len(GPUs))
+        width = 0.1
+
+        for group_ind, experiment_group in enumerate(experiment_groups):
+            plt.figure(num=group_ind)
+            experiment_group.sort()
+
+            num_experiments = (len(experiment_group) - 1)
+
+            for ind, experiment in enumerate(experiment_group):
+                reducer = None
+                quant_level = None
+                compression = None
+
+                with open(os.path.join(experiment, 'success.txt')) as file:
+                    for line in file:
+                        line = line.rstrip()
+                        if line.startswith("reducer"):
+                            reducer = line.split(': ')[-1]
+
+                        if line.startswith("quantization_level"):
+                            quant_level = line.split(': ')[-1]
+
+                        if line.startswith("compression"):
+                            compression = line.split(': ')[-1]
+
+                    if quant_level:
+                        label = ' '.join([reducer, quant_level, 'bits'])
+                    elif compression:
+                        label = ' '.join([reducer, 'K:', compression])
+                    else:
+                        label = reducer
+
+                time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
+                time_values = time_df[time_labels].values
+
+                plt.bar(events[GPU_ind] + (ind - num_experiments / 2) * width, time_values, width, label=label)
+
+            plt.xticks(events, GPUs)
+            plt.ylabel("Average time per batch")
+            plt.title(f"Scalability {models[group_ind]}")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(f"./plots/scalability_{models[group_ind]}.png")
+
     plt.show()
 
 
 if __name__ == '__main__':
-    plot_loss_curves('./logs/plot_logs')
-    plot_top1_accuracy_curves('./logs/plot_logs')
-    plot_top5_accuracy_curves('./logs/plot_logs')
-    plot_time_per_batch_curves('./logs/plot_logs')
-    plot_time_breakdown('./logs/plot_logs')
+    root_log_path = './logs/plot_logs/'
+
+    plot_loss_curves(os.path.join(root_log_path, 'convergence'))
+    plot_top1_accuracy_curves(os.path.join(root_log_path, 'convergence'))
+    plot_top5_accuracy_curves(os.path.join(root_log_path, 'convergence'))
+    plot_time_per_batch_curves(os.path.join(root_log_path, 'convergence'))
+    plot_time_breakdown(os.path.join(root_log_path, 'time_breakdown'))
+    plot_scalability(os.path.join(root_log_path, 'scalability'))

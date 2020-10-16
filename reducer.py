@@ -1113,6 +1113,142 @@ class QSGDMaxNormBiasedMemoryReducer(Reducer):
         return 8 * tensor.nelement() * tensor.element_size()
 
 
+class NUQSGDMaxNormBiasedReducer(Reducer):
+    """
+    All reduce reducer with Biased NUQSGD compression and without encoding.
+    All gathers norms, normalizing with max norm, all reduces sign array * xi vector.
+    """
+
+    def __init__(self, device, timer, quantization_level=8):
+        super(NUQSGDMaxNormBiasedReducer, self).__init__(device, timer)
+        self._quantization_level = quantization_level
+
+    def reduce(self, grad_in, grad_out):
+        bits_communicated = 0
+        compressor = NUQSGDMaxNormBiasedCompressor(self._device, self._quantization_level)
+
+        with self._timer("reduce.flat_pack"):
+            flat_grad = TensorBuffer(grad_in)
+
+        with self._timer("reduce.norm", verbosity=2):
+            norm = flat_grad.buffer.abs().max()
+
+            if self.n_workers > 1:
+                collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
+                                                               tensor=norm,
+                                                               async_op=True)
+
+                norms_gather_op.wait()
+                max_norm = max(collected_norms)
+            else:
+                max_norm = norm
+
+        with self._timer("reduce.compress", verbosity=2):
+            l_array_floored = compressor.compress(max_norm, flat_grad.buffer)
+
+        with self._timer("reduce.reduce.vector", verbosity=2):
+            if self.n_workers > 1:
+                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored,
+                                                                  async_op=True)
+                l_array_floored_op.wait()
+                l_array_floored.true_divide(self.n_workers)
+            else:
+                l_array_floored = l_array_floored
+
+        bits_communicated += self.n_bits(norm) + self.n_bits(l_array_floored)
+
+        with self._timer("reduce.decompress", verbosity=2):
+            flat_grad.buffer = compressor.decompress(max_norm, l_array_floored)
+
+        with self._timer("reduce.setgrad", verbosity=2):
+            for out in grad_out:
+                out[:] = 0.0
+
+            for grad, out in zip(flat_grad, grad_out):
+                # TODO Average or Sum
+                grad = grad.to(self._device)
+                out.add_(other=grad, alpha=1)
+
+        return bits_communicated
+
+    def n_bits(self, tensor):
+        return 8 * tensor.nelement() * tensor.element_size()
+
+
+class NUQSGDMaxNormBiasedMemoryReducer(Reducer):
+    """
+    All reduce reducer with Biased NUQSGD compression with memory and without encoding.
+    All gathers norms, normalizing with max norm, all reduces floored vector.
+    """
+
+    def __init__(self, device, timer, quantization_level=8):
+        super(NUQSGDMaxNormBiasedMemoryReducer, self).__init__(device, timer)
+        self._quantization_level = quantization_level
+        self._memory = []
+
+    def reduce(self, grad_in, grad_out):
+        bits_communicated = 0
+        compressor = NUQSGDMaxNormBiasedCompressor(self._device, self._quantization_level)
+
+        with self._timer("reduce.flat_pack"):
+            flat_grad = TensorBuffer(grad_in)
+
+        if not self._memory:
+            self._memory = [torch.zeros_like(grad_tensor) for grad_tensor in grad_in]
+            self._memory = TensorBuffer(self._memory)
+        else:
+            flat_grad.buffer[:] += self._memory.buffer
+
+        with self._timer("reduce.norm", verbosity=2):
+            norm = flat_grad.buffer.abs().max()
+
+            if self.n_workers > 1:
+                collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
+                                                               tensor=norm,
+                                                               async_op=True)
+
+                norms_gather_op.wait()
+                max_norm = max(collected_norms)
+            else:
+                max_norm = norm
+
+        with self._timer("reduce.compress", verbosity=2):
+            l_array_floored = compressor.compress(max_norm, flat_grad.buffer)
+
+        with self._timer("reduce.set_memory", verbosity=2):
+            self._memory.buffer[:] = flat_grad.buffer - l_array_floored
+
+        with self._timer("reduce.reduce.vector", verbosity=2):
+            if self.n_workers > 1:
+                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored,
+                                                                  async_op=True)
+                l_array_floored_op.wait()
+                l_array_floored.true_divide(self.n_workers)
+            else:
+                l_array_floored = l_array_floored
+
+        bits_communicated += self.n_bits(norm) + self.n_bits(l_array_floored)
+
+        with self._timer("reduce.decompress", verbosity=2):
+            flat_grad.buffer = compressor.decompress(max_norm, l_array_floored)
+
+        with self._timer("reduce.setgrad", verbosity=2):
+            for out in grad_out:
+                out[:] = 0.0
+
+            for grad, out in zip(flat_grad, grad_out):
+                # TODO Average or Sum
+                grad = grad.to(self._device)
+                out.add_(other=grad, alpha=1)
+
+        return bits_communicated
+
+    def n_bits(self, tensor):
+        return 8 * tensor.nelement() * tensor.element_size()
+
+
 class TopKReducer(Reducer):
     """
     TopK reducer with K most important gradient updates layerwise.

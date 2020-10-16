@@ -16,7 +16,8 @@ from reducer import (
     GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer,
     NUQSGDModReducer, NUQSGDMaxNormReducer,
     TopKReducer, TopKReducerRatio, GlobalTopKReducer, GlobalTopKReducerRatio,
-    QSGDMaxNormBiasedReducer, QSGDMaxNormBiasedMemoryReducer
+    QSGDMaxNormBiasedReducer, QSGDMaxNormBiasedMemoryReducer,
+    NUQSGDMaxNormBiasedReducer, NUQSGDMaxNormBiasedMemoryReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -66,7 +67,8 @@ def train(local_rank, log_path):
         reducer = globals()[config['reducer']](device, timer)
     elif config['reducer'] in ["QSGDReducer", "QSGDWECReducer", "QSGDWECModReducer", "QSGDBPReducer",
                                "QSGDBPAllReducer", "QSGDMaxNormReducer", "NUQSGDModReducer", "NUQSGDMaxNormReducer",
-                               "QSGDMaxNormBiasedReducer", "QSGDMaxNormBiasedMemoryReducer"]:
+                               "QSGDMaxNormBiasedReducer", "QSGDMaxNormBiasedMemoryReducer",
+                               "NUQSGDMaxNormBiasedReducer", "NUQSGDMaxNormBiasedMemoryReducer"]:
         reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
     elif config['reducer'] in ["GlobalRandKMaxNormReducer", "MaxNormGlobalRandKReducer"]:
         reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])

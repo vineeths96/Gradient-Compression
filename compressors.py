@@ -576,7 +576,40 @@ class NUQSGDMaxNormCompressor:
 
         return norm / s * sign_h_array
 
-"""
+
+class QSGDMaxNormBiasedCompressor:
+    """
+    Modified QSGD Compressor without Elias coding and randomized rounding.
+    Normalizing with max norm among thw workers.
+    Code: sign array * xi array.
+    """
+
+    def __init__(self, device, quantization_level=8):
+        self._device = device
+        self._quantization_level = quantization_level
+
+        if quantization_level < 8:
+            self._dtype = torch.int8
+        else:
+            self._dtype = torch.int32
+
+    def compress(self, norm, tensor):
+        s = (1 << self._quantization_level) - 1
+
+        l_array = tensor / norm * s
+        l_array_floored = l_array.to(dtype=self._dtype, device=self._device)
+
+        return l_array_floored
+
+    def decompress(self, norm, l_array_floored):
+        s = (1 << self._quantization_level) - 1
+
+        return norm / s * l_array_floored
+
+
+'''
+# Under development
+
 NUQ:
 1. Normalize
 2. x = Normalized x 2**8
@@ -595,7 +628,7 @@ NUQ:
     else:
         update = AVG
 4. Negative values abs()    
-"""
+
 
 
 class TLMaxNormCompressor:
@@ -642,8 +675,6 @@ class TLMaxNormCompressor:
 
         return norm / s * sign_xi_array
 
-"""
-# Under development
 q = torch.randn(10)
 lower_s = 1 << 6
 higher_s = 1 << (6+2)
@@ -678,4 +709,4 @@ mask_select_lower_indices = lower_array * lower_select
 mask_select_lower_indices + mask_select_higher_indices
 two_level_vector = mask_select_lower_indices + mask_select_higher_indices
 sign_two_level_vector = (sign_array * two_level_vector).to(torch.int8)
-"""
+'''

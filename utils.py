@@ -298,63 +298,78 @@ def plot_time_scalability(log_path):
 
 def plot_throughput_scalability(log_path):
     time_labels = ['batch']
-    # time_labels = ['batch.reduce']
     models = ['ResNet50', 'VGG16']
-
-    [plt.figure(num=ind, figsize=[10, 7]) for ind in range(len(models))]
 
     GPUs = os.listdir(log_path)
     GPUs.sort()
 
-    for GPU_ind, GPU in enumerate(GPUs):
-        experiment_groups = [glob.glob(f'{log_path}/{GPU}/*{model}') for model in models]
-        events = np.arange(len(GPUs))
-        width = 0.1
+    width = 0.1
+    events = np.arange(len(GPUs))
 
-        for group_ind, experiment_group in enumerate(experiment_groups):
-            plt.figure(num=group_ind)
-            experiment_group.sort()
+    throughput_dfs = {model: None for model in models}
+    experiment_groups = [glob.glob(f'{log_path}/*/*{model}') for model in models]
 
-            num_experiments = (len(experiment_group) - 1)
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        throughput_results = []
+        compressor_ind_map = {}
+        latest_compressor_ind = 0
 
-            for ind, experiment in enumerate(experiment_group):
-                reducer = None
-                quant_level = None
-                compression = None
+        experiment_group.sort()
 
-                with open(os.path.join(experiment, 'success.txt')) as file:
-                    for line in file:
-                        line = line.rstrip()
-                        if line.startswith("reducer"):
-                            reducer = line.split(': ')[-1]
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            compression = None
 
-                        if line.startswith("quantization_level"):
-                            quant_level = line.split(': ')[-1]
+            with open(os.path.join(experiment, 'success.txt')) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = line.split(': ')[-1]
 
-                        if line.startswith("compression"):
-                            compression = line.split(': ')[-1]
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(': ')[-1]
 
-                    if quant_level:
-                        label = ' '.join([reducer, quant_level, 'bits'])
-                    elif compression:
-                        label = ' '.join([reducer, 'K:', compression])
-                    else:
-                        label = reducer
+                    if line.startswith("compression"):
+                        compression = line.split(': ')[-1]
 
-                time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
-                num_GPUs = int(GPUs[GPU_ind].split()[0])
-                time_values = (128 * num_GPUs) / time_df[time_labels].values
+                if quant_level:
+                    label = ' '.join([reducer, quant_level, 'bits'])
+                elif compression:
+                    label = ' '.join([reducer, 'K:', compression])
+                else:
+                    label = reducer
 
-                plt.bar(events[GPU_ind] + (ind - num_experiments / 2) * width, time_values, width, label=label)
+            if not label in compressor_ind_map:
+                throughput_results.append([])
+                compressor_ind_map[label] = latest_compressor_ind
+                latest_compressor_ind += 1
 
-            plt.xticks(events, GPUs)
-            plt.ylabel("Images per sec")
-            plt.title(f"Throughput Scalability {models[group_ind]}")
-            plt.legend()
-            plt.tight_layout()
-            plt.savefig(f"./plots/throughput_scalability_{models[group_ind]}.png")
+            time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
+            num_GPUs = int(experiment.split('/')[4].split()[0])
+            throughput = (128 * num_GPUs) / time_df[time_labels].values
 
-    plt.show()
+            throughput_results[compressor_ind_map[label]].append(int(throughput))
+
+        throughput_dfs[models[group_ind]] = pd.DataFrame(throughput_results, index=compressor_ind_map.keys())
+
+    for df_key in throughput_dfs:
+        plt.figure()
+        throughput_df = throughput_dfs[df_key]
+
+        for ind, (label, values) in enumerate(throughput_df.iterrows()):
+            values = values.to_list()
+            num_compressors = len(throughput_df) - 1
+            plt.bar(events + (ind - num_compressors / 2) * width, values, width, label=label)
+
+        plt.xticks(events, GPUs)
+        plt.ylabel("Images per sec")
+        plt.title(f"Throughput Scalability {df_key}")
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f"./plots/throughput_scalability_{df_key}.png")
+
+        plt.show()
 
 
 if __name__ == '__main__':

@@ -3,10 +3,29 @@ import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.inset_locator import TransformedBbox, BboxPatch, BboxConnector
+
+
+def mark_inset(parent_axes, inset_axes, loc1a=1, loc1b=1, loc2a=2, loc2b=2, **kwargs):
+    rect = TransformedBbox(inset_axes.viewLim, parent_axes.transData)
+
+    pp = BboxPatch(rect, fill=False, **kwargs)
+    parent_axes.add_patch(pp)
+
+    p1 = BboxConnector(inset_axes.bbox, rect, loc1=loc1a, loc2=loc1b, **kwargs)
+    inset_axes.add_patch(p1)
+    p1.set_clip_on(False)
+    p2 = BboxConnector(inset_axes.bbox, rect, loc1=loc2a, loc2=loc2b, **kwargs)
+    inset_axes.add_patch(p2)
+    p2.set_clip_on(False)
+
+    return pp, p1, p2
 
 
 def plot_loss_curves(log_path):
-    plt.figure(figsize=[10, 7])
+    fig, axes_main = plt.subplots(figsize=[10, 7])
+    axes_inner = plt.axes([.35, .6, .3, .3])
+    axes_inner_range = list(range(40, 80))
 
     experiments = os.listdir(log_path)
     experiments.sort()
@@ -37,19 +56,28 @@ def plot_loss_curves(log_path):
 
         log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
         loss = log_dict[()].get('loss')
-        plt.plot(loss, label=label)
+        axes_main.plot(loss, label=label)
 
-    plt.grid()
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.title("Loss curve")
-    plt.legend()
+        axes_inner.plot(axes_inner_range, loss[axes_inner_range])
+
+    axes_inner.grid()
+    mark_inset(axes_main, axes_inner, loc1a=4, loc1b=1, loc2a=3, loc2b=2, fc="none", ec="0.5")
+
+    # axes_main.grid()
+    axes_main.set_xlabel("Epochs")
+    axes_main.set_ylabel("Loss")
+    axes_main.set_title("Loss curve")
+    axes_main.legend()
+
+    plt.tight_layout()
     plt.savefig("./plots/loss.png")
     plt.show()
 
 
 def plot_top1_accuracy_curves(log_path):
-    plt.figure(figsize=[10, 7])
+    fig, axes_main = plt.subplots(figsize=[10, 7])
+    axes_inner = plt.axes([.35, .15, .3, .3])
+    axes_inner_range = list(range(30, 60))
 
     experiments = os.listdir(log_path)
     experiments.sort()
@@ -80,19 +108,28 @@ def plot_top1_accuracy_curves(log_path):
 
         log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
         top1_accuracy = log_dict[()].get('test_top1_accuracy')
-        plt.plot(top1_accuracy, label=label)
+        axes_main.plot(top1_accuracy, label=label)
 
-    plt.grid()
-    plt.xlabel("Epochs")
-    plt.ylabel("Top 1 Accuracy")
-    plt.title("Accuracy curve")
-    plt.legend()
+        axes_inner.plot(axes_inner_range, top1_accuracy[axes_inner_range])
+
+    axes_inner.grid()
+    mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
+
+    # axes_main.grid()
+    axes_main.set_xlabel("Epochs")
+    axes_main.set_ylabel("Top 1 Accuracy")
+    axes_main.set_title("Accuracy curve")
+    axes_main.legend()
+
+    plt.tight_layout()
     plt.savefig("./plots/top1.png")
     plt.show()
 
 
 def plot_top5_accuracy_curves(log_path):
-    plt.figure(figsize=[10, 7])
+    fig, axes_main = plt.subplots(figsize=[10, 7])
+    axes_inner = plt.axes([.35, .15, .3, .3])
+    axes_inner_range = list(range(5, 25))
 
     experiments = os.listdir(log_path)
     experiments.sort()
@@ -123,19 +160,28 @@ def plot_top5_accuracy_curves(log_path):
 
         log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
         top5_accuracy = log_dict[()].get('test_top5_accuracy')
-        plt.plot(top5_accuracy, label=label)
+        axes_main.plot(top5_accuracy, label=label)
 
-    plt.grid()
-    plt.xlabel("Epochs")
-    plt.ylabel("Top 5 Accuracy")
-    plt.title("Accuracy curve")
-    plt.legend()
+        axes_inner.plot(axes_inner_range, top5_accuracy[axes_inner_range])
+
+    axes_inner.grid()
+    mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
+
+    # axes_main.grid()
+    axes_main.set_xlabel("Epochs")
+    axes_main.set_ylabel("Top 5 Accuracy")
+    axes_main.set_title("Accuracy curve")
+    axes_main.legend()
+
+    plt.tight_layout()
     plt.savefig("./plots/top5.png")
     plt.show()
 
 
 def plot_top1_accuracy_time_curves(log_path):
-    plt.figure(figsize=[10, 7])
+    fig, axes_main = plt.subplots(figsize=[10, 7])
+    axes_inner = plt.axes([.35, .15, .3, .3])
+    axes_inner_range = list(range(30, 60))
 
     experiments = os.listdir(log_path)
     experiments.sort()
@@ -167,13 +213,20 @@ def plot_top1_accuracy_time_curves(log_path):
         log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
         top1_accuracy = log_dict[()].get('test_top1_accuracy')
         time = log_dict[()].get('time')
-        plt.plot(time, top1_accuracy, label=label)
+        axes_main.plot(time, top1_accuracy, label=label)
 
-    plt.grid()
-    plt.xlabel("Time")
-    plt.ylabel("Top 1 Accuracy")
-    plt.title("Accuracy Time curve")
-    plt.legend()
+        axes_inner.plot(time[axes_inner_range], top1_accuracy[axes_inner_range])
+
+    axes_inner.grid()
+    mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
+
+    # axes_main.grid()
+    axes_main.set_xlabel("Time")
+    axes_main.set_ylabel("Top 1 Accuracy")
+    axes_main.set_title("Accuracy Time curve")
+    axes_main.legend()
+
+    plt.tight_layout()
     plt.savefig("./plots/top1_time.png")
     plt.show()
 

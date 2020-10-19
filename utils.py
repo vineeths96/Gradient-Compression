@@ -23,236 +23,32 @@ def mark_inset(parent_axes, inset_axes, loc1a=1, loc1b=1, loc2a=2, loc2b=2, **kw
 
 
 def plot_loss_curves(log_path):
-    fig, axes_main = plt.subplots(figsize=[10, 7])
-    axes_inner = plt.axes([.35, .6, .3, .3])
-    axes_inner_range = list(range(40, 80))
+    models = ['ResNet50', 'VGG16']
+    experiment_groups = [glob.glob(f'{log_path}/*{model}') for model in models]
 
-    experiments = os.listdir(log_path)
-    experiments.sort()
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        fig, axes_main = plt.subplots(figsize=[10, 7])
+        axes_inner = plt.axes([.35, .6, .3, .3])
+        axes_inner_range = list(range(40, 80))
 
-    for experiment in experiments:
-        reducer = None
-        quant_level = None
-        compression = None
+        experiment_group.sort()
 
-        with open(os.path.join(log_path, experiment, 'success.txt')) as file:
-            for line in file:
-                line = line.rstrip()
-                if line.startswith("reducer"):
-                    reducer = line.split(': ')[-1]
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            compression = None
 
-                if line.startswith("quantization_level"):
-                    quant_level = line.split(': ')[-1]
+            with open(os.path.join(experiment, 'success.txt')) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = line.split(': ')[-1]
 
-                if line.startswith("compression"):
-                    compression = line.split(': ')[-1]
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(': ')[-1]
 
-        if quant_level:
-            label = ' '.join([reducer, quant_level, 'bits'])
-        elif compression:
-            label = ' '.join([reducer, 'K:', compression])
-        else:
-            label = reducer
-
-        log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
-        loss = log_dict[()].get('loss')
-        axes_main.plot(loss, label=label)
-
-        axes_inner.plot(axes_inner_range, loss[axes_inner_range])
-
-    axes_inner.grid()
-    mark_inset(axes_main, axes_inner, loc1a=4, loc1b=1, loc2a=3, loc2b=2, fc="none", ec="0.5")
-
-    # axes_main.grid()
-    axes_main.set_xlabel("Epochs")
-    axes_main.set_ylabel("Loss")
-    axes_main.set_title("Loss curve")
-    axes_main.legend()
-
-    plt.tight_layout()
-    plt.savefig("./plots/loss.png")
-    plt.show()
-
-
-def plot_top1_accuracy_curves(log_path):
-    fig, axes_main = plt.subplots(figsize=[10, 7])
-    axes_inner = plt.axes([.35, .15, .3, .3])
-    axes_inner_range = list(range(30, 60))
-
-    experiments = os.listdir(log_path)
-    experiments.sort()
-
-    for experiment in experiments:
-        reducer = None
-        quant_level = None
-        compression = None
-
-        with open(os.path.join(log_path, experiment, 'success.txt')) as file:
-            for line in file:
-                line = line.rstrip()
-                if line.startswith("reducer"):
-                    reducer = line.split(': ')[-1]
-
-                if line.startswith("quantization_level"):
-                    quant_level = line.split(': ')[-1]
-
-                if line.startswith("compression"):
-                    compression = line.split(': ')[-1]
-
-        if quant_level:
-            label = ' '.join([reducer, quant_level, 'bits'])
-        elif compression:
-            label = ' '.join([reducer, 'K:', compression])
-        else:
-            label = reducer
-
-        log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
-        top1_accuracy = log_dict[()].get('test_top1_accuracy')
-        axes_main.plot(top1_accuracy, label=label)
-
-        axes_inner.plot(axes_inner_range, top1_accuracy[axes_inner_range])
-
-    axes_inner.grid()
-    mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
-
-    # axes_main.grid()
-    axes_main.set_xlabel("Epochs")
-    axes_main.set_ylabel("Top 1 Accuracy")
-    axes_main.set_title("Accuracy curve")
-    axes_main.legend()
-
-    plt.tight_layout()
-    plt.savefig("./plots/top1.png")
-    plt.show()
-
-
-def plot_top5_accuracy_curves(log_path):
-    fig, axes_main = plt.subplots(figsize=[10, 7])
-    axes_inner = plt.axes([.35, .15, .3, .3])
-    axes_inner_range = list(range(5, 25))
-
-    experiments = os.listdir(log_path)
-    experiments.sort()
-
-    for experiment in experiments:
-        reducer = None
-        quant_level = None
-        compression = None
-
-        with open(os.path.join(log_path, experiment, 'success.txt')) as file:
-            for line in file:
-                line = line.rstrip()
-                if line.startswith("reducer"):
-                    reducer = line.split(': ')[-1]
-
-                if line.startswith("quantization_level"):
-                    quant_level = line.split(': ')[-1]
-
-                if line.startswith("compression"):
-                    compression = line.split(': ')[-1]
-
-        if quant_level:
-            label = ' '.join([reducer, quant_level, 'bits'])
-        elif compression:
-            label = ' '.join([reducer, 'K:', compression])
-        else:
-            label = reducer
-
-        log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
-        top5_accuracy = log_dict[()].get('test_top5_accuracy')
-        axes_main.plot(top5_accuracy, label=label)
-
-        axes_inner.plot(axes_inner_range, top5_accuracy[axes_inner_range])
-
-    axes_inner.grid()
-    mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
-
-    # axes_main.grid()
-    axes_main.set_xlabel("Epochs")
-    axes_main.set_ylabel("Top 5 Accuracy")
-    axes_main.set_title("Accuracy curve")
-    axes_main.legend()
-
-    plt.tight_layout()
-    plt.savefig("./plots/top5.png")
-    plt.show()
-
-
-def plot_top1_accuracy_time_curves(log_path):
-    fig, axes_main = plt.subplots(figsize=[10, 7])
-    axes_inner = plt.axes([.35, .15, .3, .3])
-    axes_inner_range = list(range(30, 60))
-
-    experiments = os.listdir(log_path)
-    experiments.sort()
-
-    for experiment in experiments:
-        reducer = None
-        quant_level = None
-        compression = None
-
-        with open(os.path.join(log_path, experiment, 'success.txt')) as file:
-            for line in file:
-                line = line.rstrip()
-                if line.startswith("reducer"):
-                    reducer = line.split(': ')[-1]
-
-                if line.startswith("quantization_level"):
-                    quant_level = line.split(': ')[-1]
-
-                if line.startswith("compression"):
-                    compression = line.split(': ')[-1]
-
-        if quant_level:
-            label = ' '.join([reducer, quant_level, 'bits'])
-        elif compression:
-            label = ' '.join([reducer, 'K:', compression])
-        else:
-            label = reducer
-
-        log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
-        top1_accuracy = log_dict[()].get('test_top1_accuracy')
-        time = log_dict[()].get('time')
-        axes_main.plot(time, top1_accuracy, label=label)
-
-        axes_inner.plot(time[axes_inner_range], top1_accuracy[axes_inner_range])
-
-    axes_inner.grid()
-    mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
-
-    # axes_main.grid()
-    axes_main.set_xlabel("Time")
-    axes_main.set_ylabel("Top 1 Accuracy")
-    axes_main.set_title("Accuracy Time curve")
-    axes_main.legend()
-
-    plt.tight_layout()
-    plt.savefig("./plots/top1_time.png")
-    plt.show()
-
-
-def plot_time_per_batch_curves(log_path):
-    plt.figure(figsize=[10, 7])
-
-    experiments = os.listdir(log_path)
-    experiments.sort()
-
-    for experiment in experiments:
-        reducer = None
-        quant_level = None
-        compression = None
-
-        with open(os.path.join(log_path, experiment, 'success.txt')) as file:
-            for line in file:
-                line = line.rstrip()
-                if line.startswith("reducer"):
-                    reducer = line.split(': ')[-1]
-
-                if line.startswith("quantization_level"):
-                    quant_level = line.split(': ')[-1]
-
-                if line.startswith("compression"):
-                    compression = line.split(': ')[-1]
+                    if line.startswith("compression"):
+                        compression = line.split(': ')[-1]
 
             if quant_level:
                 label = ' '.join([reducer, quant_level, 'bits'])
@@ -261,22 +57,241 @@ def plot_time_per_batch_curves(log_path):
             else:
                 label = reducer
 
-        log_dict = np.load(os.path.join(log_path, experiment, 'log_dict.npy'), allow_pickle=True)
-        time = log_dict[()].get('time')
-        epoch_time = np.zeros(len(time) - 1)
+            log_dict = np.load(os.path.join(experiment, 'log_dict.npy'), allow_pickle=True)
+            loss = log_dict[()].get('loss')
+            axes_main.plot(loss, label=label)
 
-        for ind in range(epoch_time.shape[0]):
-            epoch_time[ind] = time[ind + 1] - time[ind]
+            axes_inner.plot(axes_inner_range, loss[axes_inner_range])
 
-        plt.plot(epoch_time, label=label)
+        axes_inner.grid()
+        mark_inset(axes_main, axes_inner, loc1a=4, loc1b=1, loc2a=3, loc2b=2, fc="none", ec="0.5")
 
-    plt.grid()
-    plt.xlabel("Epochs")
-    plt.ylabel("Average time")
-    plt.title("Average time curve")
-    plt.legend()
-    plt.savefig("./plots/time.png")
-    plt.show()
+        # axes_main.grid()
+        axes_main.set_xlabel("Epochs")
+        axes_main.set_ylabel("Loss")
+        axes_main.set_title(f"Loss curve {models[group_ind]}")
+        axes_main.legend()
+
+        plt.tight_layout()
+        plt.savefig(f"./plots/loss_{models[group_ind]}.png")
+        plt.show()
+
+
+def plot_top1_accuracy_curves(log_path):
+    models = ['ResNet50', 'VGG16']
+    experiment_groups = [glob.glob(f'{log_path}/*{model}') for model in models]
+
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        fig, axes_main = plt.subplots(figsize=[10, 7])
+        axes_inner = plt.axes([.35, .15, .3, .3])
+        axes_inner_range = list(range(30, 60))
+
+        experiment_group.sort()
+
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            compression = None
+
+            with open(os.path.join(experiment, 'success.txt')) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = line.split(': ')[-1]
+
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(': ')[-1]
+
+                    if line.startswith("compression"):
+                        compression = line.split(': ')[-1]
+
+            if quant_level:
+                label = ' '.join([reducer, quant_level, 'bits'])
+            elif compression:
+                label = ' '.join([reducer, 'K:', compression])
+            else:
+                label = reducer
+
+            log_dict = np.load(os.path.join(experiment, 'log_dict.npy'), allow_pickle=True)
+            top1_accuracy = log_dict[()].get('test_top1_accuracy')
+            axes_main.plot(top1_accuracy, label=label)
+
+            axes_inner.plot(axes_inner_range, top1_accuracy[axes_inner_range])
+
+        axes_inner.grid()
+        mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
+
+        # axes_main.grid()
+        axes_main.set_xlabel("Epochs")
+        axes_main.set_ylabel("Top 1 Accuracy")
+        axes_main.set_title(f"Accuracy curve {models[group_ind]}")
+        axes_main.legend()
+
+        plt.tight_layout()
+        plt.savefig(f"./plots/top1_ {models[group_ind]}.png")
+        plt.show()
+
+
+def plot_top5_accuracy_curves(log_path):
+    models = ['ResNet50', 'VGG16']
+    experiment_groups = [glob.glob(f'{log_path}/*{model}') for model in models]
+
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        fig, axes_main = plt.subplots(figsize=[10, 7])
+        axes_inner = plt.axes([.35, .15, .3, .3])
+        axes_inner_range = list(range(5, 25))
+
+        experiment_group.sort()
+
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            compression = None
+
+            with open(os.path.join(experiment, 'success.txt')) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = line.split(': ')[-1]
+
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(': ')[-1]
+
+                    if line.startswith("compression"):
+                        compression = line.split(': ')[-1]
+
+            if quant_level:
+                label = ' '.join([reducer, quant_level, 'bits'])
+            elif compression:
+                label = ' '.join([reducer, 'K:', compression])
+            else:
+                label = reducer
+
+            log_dict = np.load(os.path.join(experiment, 'log_dict.npy'), allow_pickle=True)
+            top5_accuracy = log_dict[()].get('test_top5_accuracy')
+            axes_main.plot(top5_accuracy, label=label)
+
+            axes_inner.plot(axes_inner_range, top5_accuracy[axes_inner_range])
+
+        axes_inner.grid()
+        mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
+
+        # axes_main.grid()
+        axes_main.set_xlabel("Epochs")
+        axes_main.set_ylabel("Top 5 Accuracy")
+        axes_main.set_title(f"Accuracy curve {models[group_ind]}")
+        axes_main.legend()
+
+        plt.tight_layout()
+        plt.savefig(f"./plots/top5_ {models[group_ind]}.png")
+        plt.show()
+
+
+def plot_top1_accuracy_time_curves(log_path):
+    models = ['ResNet50', 'VGG16']
+    experiment_groups = [glob.glob(f'{log_path}/*{model}') for model in models]
+
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        fig, axes_main = plt.subplots(figsize=[10, 7])
+        axes_inner = plt.axes([.35, .15, .3, .3])
+        axes_inner_range = list(range(30, 60))
+
+        experiment_group.sort()
+
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            compression = None
+
+            with open(os.path.join(experiment, 'success.txt')) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = line.split(': ')[-1]
+
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(': ')[-1]
+
+                    if line.startswith("compression"):
+                        compression = line.split(': ')[-1]
+
+            if quant_level:
+                label = ' '.join([reducer, quant_level, 'bits'])
+            elif compression:
+                label = ' '.join([reducer, 'K:', compression])
+            else:
+                label = reducer
+
+            log_dict = np.load(os.path.join(experiment, 'log_dict.npy'), allow_pickle=True)
+            top1_accuracy = log_dict[()].get('test_top1_accuracy')
+            time = log_dict[()].get('time')
+            axes_main.plot(time, top1_accuracy, label=label)
+
+            axes_inner.plot(time[axes_inner_range], top1_accuracy[axes_inner_range])
+
+        axes_inner.grid()
+        mark_inset(axes_main, axes_inner, loc1a=1, loc1b=4, loc2a=2, loc2b=3, fc="none", ec="0.5")
+
+        # axes_main.grid()
+        axes_main.set_xlabel("Time")
+        axes_main.set_ylabel("Top 1 Accuracy")
+        axes_main.set_title(f"Accuracy Time curve {models[group_ind]}")
+        axes_main.legend()
+
+        plt.tight_layout()
+        plt.savefig(f"./plots/top1_time_{models[group_ind]}.png")
+        plt.show()
+
+
+def plot_time_per_batch_curves(log_path):
+    models = ['ResNet50', 'VGG16']
+    experiment_groups = [glob.glob(f'{log_path}/*{model}') for model in models]
+
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        plt.figure(figsize=[10, 7])
+
+        experiment_group.sort()
+
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            compression = None
+
+            with open(os.path.join(experiment, 'success.txt')) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = line.split(': ')[-1]
+
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(': ')[-1]
+
+                    if line.startswith("compression"):
+                        compression = line.split(': ')[-1]
+
+                if quant_level:
+                    label = ' '.join([reducer, quant_level, 'bits'])
+                elif compression:
+                    label = ' '.join([reducer, 'K:', compression])
+                else:
+                    label = reducer
+
+            log_dict = np.load(os.path.join(experiment, 'log_dict.npy'), allow_pickle=True)
+            time = log_dict[()].get('time')
+            epoch_time = np.zeros(len(time) - 1)
+
+            for ind in range(epoch_time.shape[0]):
+                epoch_time[ind] = time[ind + 1] - time[ind]
+
+            plt.plot(epoch_time, label=label)
+
+        plt.grid()
+        plt.xlabel("Epochs")
+        plt.ylabel("Average time")
+        plt.title(f"Average time curve {models[group_ind]}")
+        plt.legend()
+        plt.savefig(f"./plots/time_{models[group_ind]}.png")
+        plt.show()
 
 
 def plot_time_breakdown(log_path):
@@ -333,162 +348,168 @@ def plot_time_breakdown(log_path):
         plt.legend()
         plt.tight_layout()
         plt.savefig(f"./plots/time_breakdown_{models[group_ind]}.png")
-
     plt.show()
 
 
 def plot_time_scalability(log_path):
     time_labels = ['batch']
     models = ['ResNet50', 'VGG16']
+    instances = ['P2', 'P3', 'P2 Multi Node', 'P3 Multi Node']
 
-    GPUs = os.listdir(log_path)
-    GPUs.sort()
+    for instance in instances:
+        GPUs = os.listdir(os.path.join(log_path, instance))
+        GPUs.sort()
 
-    width = 0.1
-    events = np.arange(len(GPUs))
+        width = 0.1
+        events = np.arange(len(GPUs))
 
-    time_dfs = {model: None for model in models}
-    experiment_groups = [glob.glob(f'{log_path}/*/*{model}') for model in models]
+        time_dfs = {model: None for model in models}
+        experiment_groups = [glob.glob(f'{log_path}/{instance}/*/*{model}') for model in models]
 
-    for group_ind, experiment_group in enumerate(experiment_groups):
-        time_results = []
-        compressor_ind_map = {}
-        latest_compressor_ind = 0
+        for group_ind, experiment_group in enumerate(experiment_groups):
+            time_results = []
+            compressor_ind_map = {}
+            latest_compressor_ind = 0
 
-        experiment_group.sort()
+            experiment_group.sort()
 
-        for ind, experiment in enumerate(experiment_group):
-            reducer = None
-            quant_level = None
-            compression = None
+            for ind, experiment in enumerate(experiment_group):
+                reducer = None
+                quant_level = None
+                compression = None
+                num_epochs = None
 
-            with open(os.path.join(experiment, 'success.txt')) as file:
-                for line in file:
-                    line = line.rstrip()
-                    if line.startswith("reducer"):
-                        reducer = line.split(': ')[-1]
+                with open(os.path.join(experiment, 'success.txt')) as file:
+                    for line in file:
+                        line = line.rstrip()
+                        if line.startswith("reducer"):
+                            reducer = line.split(': ')[-1]
 
-                    if line.startswith("quantization_level"):
-                        quant_level = line.split(': ')[-1]
+                        if line.startswith("quantization_level"):
+                            quant_level = line.split(': ')[-1]
 
-                    if line.startswith("compression"):
-                        compression = line.split(': ')[-1]
+                        if line.startswith("compression"):
+                            compression = line.split(': ')[-1]
 
-                if quant_level:
-                    label = ' '.join([reducer, quant_level, 'bits'])
-                elif compression:
-                    label = ' '.join([reducer, 'K:', compression])
-                else:
-                    label = reducer
+                        if line.startswith("num_epochs"):
+                            num_epochs = int(line.split(': ')[-1])
 
-            if not label in compressor_ind_map:
-                time_results.append([])
-                compressor_ind_map[label] = latest_compressor_ind
-                latest_compressor_ind += 1
+                    if quant_level:
+                        label = ' '.join([reducer, quant_level, 'bits'])
+                    elif compression:
+                        label = ' '.join([reducer, 'K:', compression])
+                    else:
+                        label = reducer
 
-            time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
-            num_iterations = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['n_events'][time_labels]
-            time_values = num_iterations * time_df[time_labels].values
+                if not label in compressor_ind_map:
+                    time_results.append([])
+                    compressor_ind_map[label] = latest_compressor_ind
+                    latest_compressor_ind += 1
 
-            time_results[compressor_ind_map[label]].append(float(time_values))
+                time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['total_time']
+                time_values = time_df[time_labels].values / num_epochs
 
-        time_dfs[models[group_ind]] = pd.DataFrame(time_results, index=compressor_ind_map.keys())
+                time_results[compressor_ind_map[label]].append(float(time_values))
 
-    for df_key in time_dfs:
-        plt.figure(figsize=[10, 7])
-        time_df = time_dfs[df_key]
-        num_compressors = len(time_df) - 1
+            time_dfs[models[group_ind]] = pd.DataFrame(time_results, index=compressor_ind_map.keys())
 
-        for ind, (label, values) in enumerate(time_df.iterrows()):
-            values = values.to_list()
-            plt.bar(events + (ind - num_compressors / 2) * width, values, width, label=label)
+        for df_key in time_dfs:
+            plt.figure(figsize=[10, 7])
+            time_df = time_dfs[df_key]
+            num_compressors = len(time_df) - 1
 
-        plt.grid()
-        plt.xticks(events, GPUs)
-        plt.ylabel("Time per epoch")
-        plt.title(f"Time Scalability {df_key}")
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(f"./plots/time_scalability_{df_key}.png")
+            for ind, (label, values) in enumerate(time_df.iterrows()):
+                values = values.to_list()
+                plt.bar(events + (ind - num_compressors / 2) * width, values, width, label=label)
 
-        plt.show()
+            plt.grid()
+            plt.xticks(events, GPUs)
+            plt.ylabel("Time per epoch")
+            plt.title(f"Time Scalability {df_key} {instance}")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(f"./plots/time_scalability_{df_key}_{instance}.png")
+
+            plt.show()
 
 
 def plot_throughput_scalability(log_path):
     time_labels = ['batch']
     models = ['ResNet50', 'VGG16']
+    instances = ['P2', 'P3', 'P2 Multi Node', 'P3 Multi Node']
 
-    GPUs = os.listdir(log_path)
-    GPUs.sort()
+    for instance in instances:
+        GPUs = os.listdir(os.path.join(log_path, instance))
+        GPUs.sort()
 
-    width = 0.1
-    events = np.arange(len(GPUs))
+        width = 0.1
+        events = np.arange(len(GPUs))
 
-    throughput_dfs = {model: None for model in models}
-    experiment_groups = [glob.glob(f'{log_path}/*/*{model}') for model in models]
+        throughput_dfs = {model: None for model in models}
+        experiment_groups = [glob.glob(f'{log_path}/{instance}/*/*{model}') for model in models]
 
-    for group_ind, experiment_group in enumerate(experiment_groups):
-        throughput_results = []
-        compressor_ind_map = {}
-        latest_compressor_ind = 0
+        for group_ind, experiment_group in enumerate(experiment_groups):
+            throughput_results = []
+            compressor_ind_map = {}
+            latest_compressor_ind = 0
 
-        experiment_group.sort()
+            experiment_group.sort()
 
-        for ind, experiment in enumerate(experiment_group):
-            reducer = None
-            quant_level = None
-            compression = None
+            for ind, experiment in enumerate(experiment_group):
+                reducer = None
+                quant_level = None
+                compression = None
 
-            with open(os.path.join(experiment, 'success.txt')) as file:
-                for line in file:
-                    line = line.rstrip()
-                    if line.startswith("reducer"):
-                        reducer = line.split(': ')[-1]
+                with open(os.path.join(experiment, 'success.txt')) as file:
+                    for line in file:
+                        line = line.rstrip()
+                        if line.startswith("reducer"):
+                            reducer = line.split(': ')[-1]
 
-                    if line.startswith("quantization_level"):
-                        quant_level = line.split(': ')[-1]
+                        if line.startswith("quantization_level"):
+                            quant_level = line.split(': ')[-1]
 
-                    if line.startswith("compression"):
-                        compression = line.split(': ')[-1]
+                        if line.startswith("compression"):
+                            compression = line.split(': ')[-1]
 
-                if quant_level:
-                    label = ' '.join([reducer, quant_level, 'bits'])
-                elif compression:
-                    label = ' '.join([reducer, 'K:', compression])
-                else:
-                    label = reducer
+                    if quant_level:
+                        label = ' '.join([reducer, quant_level, 'bits'])
+                    elif compression:
+                        label = ' '.join([reducer, 'K:', compression])
+                    else:
+                        label = reducer
 
-            if not label in compressor_ind_map:
-                throughput_results.append([])
-                compressor_ind_map[label] = latest_compressor_ind
-                latest_compressor_ind += 1
+                if not label in compressor_ind_map:
+                    throughput_results.append([])
+                    compressor_ind_map[label] = latest_compressor_ind
+                    latest_compressor_ind += 1
 
-            time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
-            num_GPUs = int(experiment.split('/')[4].split()[0])
-            throughput = (128 * num_GPUs) / time_df[time_labels].values
+                time_df = pd.read_json(os.path.join(experiment, 'timer_summary.json')).loc['average_duration']
+                num_GPUs = int(experiment.split('/')[5].split()[0])
+                throughput = (128 * num_GPUs) / time_df[time_labels].values
 
-            throughput_results[compressor_ind_map[label]].append(int(throughput))
+                throughput_results[compressor_ind_map[label]].append(int(throughput))
 
-        throughput_dfs[models[group_ind]] = pd.DataFrame(throughput_results, index=compressor_ind_map.keys())
+            throughput_dfs[models[group_ind]] = pd.DataFrame(throughput_results, index=compressor_ind_map.keys())
 
-    for df_key in throughput_dfs:
-        plt.figure(figsize=[10, 7])
-        throughput_df = throughput_dfs[df_key]
-        num_compressors = len(throughput_df) - 1
+        for df_key in throughput_dfs:
+            plt.figure(figsize=[10, 7])
+            throughput_df = throughput_dfs[df_key]
+            num_compressors = len(throughput_df) - 1
 
-        for ind, (label, values) in enumerate(throughput_df.iterrows()):
-            values = values.to_list()
-            plt.bar(events + (ind - num_compressors / 2) * width, values, width, label=label)
+            for ind, (label, values) in enumerate(throughput_df.iterrows()):
+                values = values.to_list()
+                plt.bar(events + (ind - num_compressors / 2) * width, values, width, label=label)
 
-        plt.grid()
-        plt.xticks(events, GPUs)
-        plt.ylabel("Images per sec")
-        plt.title(f"Throughput Scalability {df_key}")
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(f"./plots/throughput_scalability_{df_key}.png")
+            plt.grid()
+            plt.xticks(events, GPUs)
+            plt.ylabel("Images per sec")
+            plt.title(f"Throughput Scalability {df_key} {instance}")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(f"./plots/throughput_scalability_{df_key}_{instance}.png")
 
-        plt.show()
+            plt.show()
 
 
 if __name__ == '__main__':

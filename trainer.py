@@ -16,6 +16,8 @@ from reducer import (
     GlobalRandKMaxNormReducer, MaxNormGlobalRandKReducer,
     NUQSGDModReducer, NUQSGDMaxNormReducer,
     TopKReducer, TopKReducerRatio, GlobalTopKReducer, GlobalTopKReducerRatio,
+    QSGDMaxNormBiasedReducer, QSGDMaxNormBiasedMemoryReducer,
+    NUQSGDMaxNormBiasedReducer, NUQSGDMaxNormBiasedMemoryReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -23,13 +25,13 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=1,
+    num_epochs=150,
     batch_size=128,
-    architecture="VGG16",
+    architecture="ResNet50",
     # K=10000,
     # compression=1/1000,
     # quantization_level=6,
-    reducer="NoneAllReducer",
+    reducer="QSGDMaxNormBiasedCompressor",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -64,7 +66,9 @@ def train(local_rank, log_path):
     if config['reducer'] in ["NoneReducer", "NoneAllReducer", "TernGradReducer", "TernGradModReducer"]:
         reducer = globals()[config['reducer']](device, timer)
     elif config['reducer'] in ["QSGDReducer", "QSGDWECReducer", "QSGDWECModReducer", "QSGDBPReducer",
-                               "QSGDBPAllReducer", "QSGDMaxNormReducer", "NUQSGDModReducer", "NUQSGDMaxNormReducer"]:
+                               "QSGDBPAllReducer", "QSGDMaxNormReducer", "NUQSGDModReducer", "NUQSGDMaxNormReducer",
+                               "QSGDMaxNormBiasedReducer", "QSGDMaxNormBiasedMemoryReducer",
+                               "NUQSGDMaxNormBiasedReducer", "NUQSGDMaxNormBiasedMemoryReducer"]:
         reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
     elif config['reducer'] in ["GlobalRandKMaxNormReducer", "MaxNormGlobalRandKReducer"]:
         reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
@@ -81,10 +85,8 @@ def train(local_rank, log_path):
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
-    # optimizer = optim.SGD(params=model.parameters, lr=lr)
-    # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
-    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, nesterov=True)
-    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=100, gamma=0.1)
+    optimizer = optim.SGD(params=model.parameters, lr=lr)
+    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
 
     for epoch in range(config['num_epochs']):
         if local_rank == 0:

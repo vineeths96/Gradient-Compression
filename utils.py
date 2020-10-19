@@ -128,7 +128,7 @@ def plot_top1_accuracy_curves(log_path):
         axes_main.legend()
 
         plt.tight_layout()
-        plt.savefig(f"./plots/top1_ {models[group_ind]}.png")
+        plt.savefig(f"./plots/top1_{models[group_ind]}.png")
         plt.show()
 
 
@@ -183,7 +183,7 @@ def plot_top5_accuracy_curves(log_path):
         axes_main.legend()
 
         plt.tight_layout()
-        plt.savefig(f"./plots/top5_ {models[group_ind]}.png")
+        plt.savefig(f"./plots/top5_{models[group_ind]}.png")
         plt.show()
 
 

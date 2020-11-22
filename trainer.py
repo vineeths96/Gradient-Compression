@@ -31,7 +31,8 @@ config = dict(
     # K=10000,
     # compression=1/1000,
     # quantization_level=6,
-    reducer="QSGDMaxNormBiasedCompressor",
+    local_steps=1000,
+    reducer="NoneAllReducer",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -81,6 +82,7 @@ def train(local_rank, log_path):
 
     lr = config['lr']
     bits_communicated = 0
+    global_iteration_count = 0
     model = CIFAR(device, timer, config['architecture'], config['seed'] + local_rank)
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
@@ -96,18 +98,24 @@ def train(local_rank, log_path):
 
         train_loader = model.train_dataloader(config['batch_size'])
         for i, batch in enumerate(train_loader):
+            global_iteration_count += 1
             epoch_frac = epoch + i / model.len_train_loader
 
             with timer("batch", epoch_frac):
+                if global_iteration_count % config['local_steps'] == 0:
+                    with torch.no_grad():
+                        params = model.parameters
+                        with timer("batch.accumulate", epoch_frac, verbosity=2):
+                            for param, send_buffer in zip(params, send_buffers):
+                                send_buffer[:] = param
+
+                        with timer("batch.reduce", epoch_frac):
+                            bits_communicated += reducer.reduce(send_buffers, params)
+
+                    continue
+
                 _, grads, metrics = model.batch_loss_with_gradients(batch)
                 epoch_metrics.add(metrics)
-
-                with timer("batch.accumulate", epoch_frac, verbosity=2):
-                    for grad, send_buffer in zip(grads, send_buffers):
-                        send_buffer[:] = grad
-
-                with timer("batch.reduce", epoch_frac):
-                    bits_communicated += reducer.reduce(send_buffers, grads)
 
                 with timer("batch.step", epoch_frac, verbosity=2):
                     optimizer.step()

@@ -18,6 +18,7 @@ from reducer import (
     TopKReducer, TopKReducerRatio, GlobalTopKReducer, GlobalTopKReducerRatio,
     QSGDMaxNormBiasedReducer, QSGDMaxNormBiasedMemoryReducer,
     NUQSGDMaxNormBiasedReducer, NUQSGDMaxNormBiasedMemoryReducer,
+    QSGDMaxNormMaskReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -25,13 +26,13 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=150,
+    num_epochs=100,
     batch_size=128,
     architecture="ResNet50",
     # K=10000,
     # compression=1/1000,
-    # quantization_level=6,
-    reducer="QSGDMaxNormBiasedCompressor",
+    quantization_level=6,
+    reducer="QSGDMaxNormMaskReducer",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -68,7 +69,8 @@ def train(local_rank, log_path):
     elif config['reducer'] in ["QSGDReducer", "QSGDWECReducer", "QSGDWECModReducer", "QSGDBPReducer",
                                "QSGDBPAllReducer", "QSGDMaxNormReducer", "NUQSGDModReducer", "NUQSGDMaxNormReducer",
                                "QSGDMaxNormBiasedReducer", "QSGDMaxNormBiasedMemoryReducer",
-                               "NUQSGDMaxNormBiasedReducer", "NUQSGDMaxNormBiasedMemoryReducer"]:
+                               "NUQSGDMaxNormBiasedReducer", "NUQSGDMaxNormBiasedMemoryReducer",
+                               "QSGDMaxNormMaskReducer"]:
         reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
     elif config['reducer'] in ["GlobalRandKMaxNormReducer", "MaxNormGlobalRandKReducer"]:
         reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
@@ -81,6 +83,7 @@ def train(local_rank, log_path):
 
     lr = config['lr']
     bits_communicated = 0
+    grad_track = []
     model = CIFAR(device, timer, config['architecture'], config['seed'] + local_rank)
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
@@ -107,7 +110,7 @@ def train(local_rank, log_path):
                         send_buffer[:] = grad
 
                 with timer("batch.reduce", epoch_frac):
-                    bits_communicated += reducer.reduce(send_buffers, grads)
+                    bits_communicated += reducer.reduce(send_buffers, grads, grad_track)
 
                 with timer("batch.step", epoch_frac, verbosity=2):
                     optimizer.step()
@@ -134,6 +137,10 @@ def train(local_rank, log_path):
     if local_rank == 0:
         print(timer.summary())
         logger.summary_writer(model, timer, bits_communicated)
+
+        import pickle
+        with open('grad_track.pickle', 'wb') as handle:
+            pickle.dump(grad_track, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == '__main__':

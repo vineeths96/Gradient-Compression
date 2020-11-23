@@ -1555,3 +1555,129 @@ class GlobalTopKReducerRatio(Reducer):
 
     def n_bits(self, tensor):
         return 8 * tensor.nelement() * tensor.element_size()
+
+
+
+
+class TrackReducer:
+    """
+    Base class for Custom Reducers. All reducers derive from this class.
+    """
+
+    def __init__(self, device, timer):
+        if torch.distributed.is_available():
+            self.n_workers = torch.distributed.get_world_size()
+            self.rank = torch.distributed.get_rank()
+        else:
+            self.n_workers = 1
+            self.rank = 0
+
+        self._device = device
+        self._timer = timer
+
+    def reduce(self, grad_in, grad_out, grad_track):
+        raise NotImplementedError()
+
+
+class QSGDMaxNormMaskReducer(TrackReducer):
+    """
+    All reduce reducer with QSGD compression and without Elias encoding.
+    All gathers norms, normalizing with max norm, all reduces sign array * xi vector.
+    """
+
+    def __init__(self, device, timer, quantization_level=8):
+        super(QSGDMaxNormMaskReducer, self).__init__(device, timer)
+        self._quantization_level = quantization_level
+
+    def reduce(self, grad_in, grad_out, grad_track):
+        bits_communicated = 0
+        compressor = QSGDMaxNormCompressor(self._device, self._quantization_level)
+
+        with self._timer("reduce.flat_pack"):
+            flat_grad = TensorBuffer(grad_in)
+
+        with self._timer("reduce.norm", verbosity=2):
+            norm = flat_grad.buffer.abs().max()
+
+            if self.n_workers > 1:
+                collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
+                                                               tensor=norm,
+                                                               async_op=True)
+
+                norms_gather_op.wait()
+                max_norm = max(collected_norms)
+            else:
+                max_norm = norm
+
+        with self._timer("reduce.compress", verbosity=2):
+            sign_xi_array = compressor.compress(max_norm, flat_grad.buffer)
+
+            s_low = (1 << 7) - 1
+            s_high = (1 << 10) - 1
+
+            l_array_low = torch.abs(flat_grad.buffer) / max_norm * s_low
+            l_array_high = torch.abs(flat_grad.buffer) / max_norm * s_high
+
+            l_array_low_floored = l_array_low.to(dtype=torch.int32)
+            l_array_high_floored = l_array_high.to(dtype=torch.int32)
+
+            prob_array_low = l_array_low - l_array_low_floored
+            prob_array_high = l_array_high - l_array_high_floored
+
+            mask_low = torch.bernoulli(prob_array_low)
+            mask_high = torch.bernoulli(prob_array_high)
+
+            xi_array_low = l_array_low_floored + mask_low
+            xi_array_high = l_array_high_floored + mask_high
+
+            higher_resolution_mask = (xi_array_high <= 127).to(torch.int8)
+            lower_resolution_mask = (xi_array_high > 127).to(torch.int8)
+
+            if self.n_workers > 1:
+                high_mask = torch.distributed.all_reduce(tensor=higher_resolution_mask,
+                                                         op=torch.distributed.reduce_op.PRODUCT,
+                                                         async_op=True)
+                low_mask = torch.distributed.all_reduce(tensor=lower_resolution_mask,
+                                                         op=torch.distributed.reduce_op.PRODUCT,
+                                                         async_op=True)
+
+                high_mask.wait()
+                low_mask.wait()
+            else:
+                higher_resolution_mask = higher_resolution_mask
+                lower_resolution_mask = lower_resolution_mask
+
+            higher_numbers = higher_resolution_mask.sum().item()
+            lower_numbers = lower_resolution_mask.sum().item()
+            ratio = (higher_numbers + lower_numbers) / flat_grad.buffer.nelement()
+            print("High ", higher_numbers, "Low", lower_numbers, 'Ratio', ratio)
+            grad_track.append([higher_numbers, lower_numbers, flat_grad.buffer.nelement()])
+
+        with self._timer("reduce.reduce.vector", verbosity=2):
+            if self.n_workers > 1:
+                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array,
+                                                                 async_op=True)
+                sign_xi_reduce_op.wait()
+                sign_xi_array.true_divide(self.n_workers)
+            else:
+                sign_xi_array = sign_xi_array
+
+        bits_communicated += self.n_bits(norm) + self.n_bits(sign_xi_array)
+
+        with self._timer("reduce.decompress", verbosity=2):
+            flat_grad.buffer = compressor.decompress(max_norm, sign_xi_array)
+
+        with self._timer("reduce.setgrad", verbosity=2):
+            for out in grad_out:
+                out[:] = 0.0
+
+            for grad, out in zip(flat_grad, grad_out):
+                # TODO Average or Sum
+                grad = grad.to(self._device)
+                out.add_(other=grad, alpha=1)
+
+        return bits_communicated
+
+    def n_bits(self, tensor):
+        return 8 * tensor.nelement() * tensor.element_size()

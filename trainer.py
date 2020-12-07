@@ -18,7 +18,7 @@ from reducer import (
     TopKReducer, TopKReducerRatio, GlobalTopKReducer, GlobalTopKReducerRatio,
     QSGDMaxNormBiasedReducer, QSGDMaxNormBiasedMemoryReducer,
     NUQSGDMaxNormBiasedReducer, NUQSGDMaxNormBiasedMemoryReducer,
-    QSGDMaxNormMaskReducer,
+    QSGDMaxNormTwoScaleReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -26,13 +26,15 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=100,
+    num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
+    local_steps=1,
     # K=10000,
     # compression=1/1000,
-    quantization_level=6,
-    reducer="QSGDMaxNormMaskReducer",
+    # quantization_level=6,
+    # higher_quantization_level=10,
+    reducer="NoneAllReducer",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -73,11 +75,15 @@ def train(local_rank, log_path):
                                "QSGDMaxNormMaskReducer"]:
         reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
     elif config['reducer'] in ["GlobalRandKMaxNormReducer", "MaxNormGlobalRandKReducer"]:
-        reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
+        reducer = globals()[config['reducer']](device, timer, K=config['K'],
+                                               quantization_level=config['quantization_level'])
     elif config['reducer'] in ["TopKReducer", "GlobalTopKReducer"]:
         reducer = globals()[config['reducer']](device, timer, K=config['K'])
     elif config['reducer'] in ["TopKReducerRatio", "GlobalTopKReducerRatio"]:
         reducer = globals()[config['reducer']](device, timer, compression=config['compression'])
+    elif config['reducer'] in ['QSGDMaxNormTwoScaleReducer']:
+        reducer = globals()[config['reducer']](device, timer, lower_quantization_level=config['quantization_level'],
+                                               higher_quantization_level=config['higher_quantization_level'])
     else:
         raise NotImplementedError("Reducer method not implemented")
 
@@ -92,45 +98,10 @@ def train(local_rank, log_path):
     optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9)
     scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
 
-    # for epoch in range(config['num_epochs']):
-    #     if local_rank == 0:
-    #         logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch}, {"lr": scheduler.get_last_lr()})
-    #
-    #     epoch_metrics = AverageMeter(device)
-    #
-    #     train_loader = model.train_dataloader(config['batch_size'])
-    #     for i, batch in enumerate(train_loader):
-    #         global_iteration_count += 1
-    #         epoch_frac = epoch + i / model.len_train_loader
-    #
-    #         with timer("batch", epoch_frac):
-    #             if global_iteration_count % config['local_steps'] == 0:
-    #                 with torch.no_grad():
-    #                     params = model.parameters
-    #
-    #                     # print(f"PreSync Rank {local_rank} {params[0]}")
-    #                     with timer("batch.accumulate", epoch_frac, verbosity=2):
-    #                         for param, send_buffer in zip(params, send_buffers):
-    #                             send_buffer[:] = param
-    #
-    #                     with timer("batch.reduce", epoch_frac):
-    #                         bits_communicated += reducer.reduce(send_buffers, params)
-    #
-    #                 # print(f"PostSync Rank {local_rank} {params[0]}")
-    #
-    #                 continue
-    #
-    #             _, grads, metrics = model.batch_loss_with_gradients(batch)
-    #             epoch_metrics.add(metrics)
-    #
-    #             with timer("batch.step", epoch_frac, verbosity=2):
-    #                 optimizer.step()
-    #
-    #     scheduler.step()
-
     for epoch in range(config['num_epochs']):
         if local_rank == 0:
-            logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch}, {"lr": scheduler.get_last_lr()})
+            logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch},
+                            {"lr": scheduler.get_last_lr()})
 
         epoch_metrics = AverageMeter(device)
 
@@ -176,10 +147,6 @@ def train(local_rank, log_path):
     if local_rank == 0:
         print(timer.summary())
         logger.summary_writer(model, timer, bits_communicated)
-
-        import pickle
-        with open('grad_track.pickle', 'wb') as handle:
-            pickle.dump(grad_track, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 
 if __name__ == '__main__':

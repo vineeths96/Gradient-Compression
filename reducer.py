@@ -1558,26 +1558,6 @@ class GlobalTopKReducerRatio(Reducer):
         return 8 * tensor.nelement() * tensor.element_size()
 
 
-# class TrackReducer:
-#     """
-#     Base class for Custom Reducers. All reducers derive from this class.
-#     """
-#
-#     def __init__(self, device, timer):
-#         if torch.distributed.is_available():
-#             self.n_workers = torch.distributed.get_world_size()
-#             self.rank = torch.distributed.get_rank()
-#         else:
-#             self.n_workers = 1
-#             self.rank = 0
-#
-#         self._device = device
-#         self._timer = timer
-#
-#     def reduce(self, grad_in, grad_out, grad_track):
-#         raise NotImplementedError()
-
-
 class QSGDMaxNormTwoScaleReducer(Reducer):
     """
     All reduce reducer with QSGD MaxNorm Two Level compression.
@@ -1714,10 +1694,8 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
             else:
                 higher_resolution_mask = higher_resolution_mask
 
-            sign_xi_array_lower = compressor.compress(max_norm, RandK_flat_grad.buffer,
-                                                      self._lower_quantization_level)
-            sign_xi_array_higher = compressor.compress(max_norm, RandK_flat_grad.buffer,
-                                                       self._higher_quantization_level)
+            sign_xi_array_lower = compressor.compress(max_norm, RandK_flat_grad, self._lower_quantization_level)
+            sign_xi_array_higher = compressor.compress(max_norm, RandK_flat_grad, self._higher_quantization_level)
 
             sign_xi_array = higher_resolution_mask * sign_xi_array_higher + (
                     1 - higher_resolution_mask) * sign_xi_array_lower

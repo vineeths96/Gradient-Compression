@@ -301,6 +301,7 @@ class QSGDMaxNormCompressor:
 
         l_array = torch.abs(tensor) / norm * s
         l_array_floored = l_array.to(dtype=torch.int32)
+
         prob_array = l_array - l_array_floored
         prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
 
@@ -675,7 +676,9 @@ class QSGDMaxNormTwoScaleCompressor:
 
         return higher_resolution_mask
 
-    def compress(self, norm, tensor, s):
+    def compress(self, norm, tensor, quantization_level=6):
+        s = (1 << quantization_level) - 1
+
         sign_array = torch.sign(tensor).to(dtype=torch.int8)
 
         l_array = torch.abs(tensor) / norm * s
@@ -736,7 +739,9 @@ class GlobalRandKMaxNormTwoScaleCompressor:
 
         return higher_resolution_mask
 
-    def compress(self, norm, tensor, s):
+    def compress(self, norm, tensor, quantization_level=6):
+        s = (1 << quantization_level) - 1
+
         sign_array = torch.sign(tensor).to(dtype=torch.int8)
 
         l_array = torch.abs(tensor) / norm * s

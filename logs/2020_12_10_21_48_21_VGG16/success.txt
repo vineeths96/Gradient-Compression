@@ -1,0 +1,16 @@
+Training completed at 2020-12-10 22:10:56.268347
+
+Training parameters
+distributed_backend : nccl
+num_epochs : 150
+batch_size : 128
+architecture : VGG16
+local_steps : 5
+K : 10000
+quantization_level : 6
+higher_quantization_level : 10
+reducer : GlobalRandKMaxNormTwoScaleReducer
+seed : 42
+log_verbosity : 2
+lr : 0.01
+Bits communicated: 936076224

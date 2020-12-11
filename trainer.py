@@ -29,12 +29,12 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
-    local_steps=1,
+    local_steps=25,
     # K=10000,
     # compression=1/1000,
     quantization_level=6,
-    higher_quantization_level=10,
-    reducer="QSGDMaxNormTwoScaleReducer",
+    # higher_quantization_level=10,
+    reducer="QSGDMaxNormReducer",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -82,6 +82,9 @@ def train(local_rank, log_path):
     elif config['reducer'] in ["TopKReducerRatio", "GlobalTopKReducerRatio"]:
         reducer = globals()[config['reducer']](device, timer, compression=config['compression'])
     elif config['reducer'] in ['QSGDMaxNormTwoScaleReducer']:
+        reducer = globals()[config['reducer']](device, timer, lower_quantization_level=config['quantization_level'],
+                                               higher_quantization_level=config['higher_quantization_level'])
+    elif config['reducer'] in ['GlobalRandKMaxNormTwoScaleReducer']:
         reducer = globals()[config['reducer']](device, timer, lower_quantization_level=config['quantization_level'],
                                                higher_quantization_level=config['higher_quantization_level'])
     else:

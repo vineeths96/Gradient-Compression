@@ -18,6 +18,7 @@ from reducer import (
     TopKReducer, TopKReducerRatio, GlobalTopKReducer, GlobalTopKReducerRatio,
     QSGDMaxNormBiasedReducer, QSGDMaxNormBiasedMemoryReducer,
     NUQSGDMaxNormBiasedReducer, NUQSGDMaxNormBiasedMemoryReducer,
+    QSGDMaxNormTwoScaleReducer, GlobalRandKMaxNormTwoScaleReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -28,10 +29,12 @@ config = dict(
     num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
+    # local_steps=25,
     # K=10000,
     # compression=1/1000,
     # quantization_level=6,
-    reducer="QSGDMaxNormBiasedCompressor",
+    # higher_quantization_level=10,
+    reducer="NoneAllReducer",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -68,46 +71,59 @@ def train(local_rank, log_path):
     elif config['reducer'] in ["QSGDReducer", "QSGDWECReducer", "QSGDWECModReducer", "QSGDBPReducer",
                                "QSGDBPAllReducer", "QSGDMaxNormReducer", "NUQSGDModReducer", "NUQSGDMaxNormReducer",
                                "QSGDMaxNormBiasedReducer", "QSGDMaxNormBiasedMemoryReducer",
-                               "NUQSGDMaxNormBiasedReducer", "NUQSGDMaxNormBiasedMemoryReducer"]:
+                               "NUQSGDMaxNormBiasedReducer", "NUQSGDMaxNormBiasedMemoryReducer",
+                               "QSGDMaxNormMaskReducer"]:
         reducer = globals()[config['reducer']](device, timer, quantization_level=config['quantization_level'])
     elif config['reducer'] in ["GlobalRandKMaxNormReducer", "MaxNormGlobalRandKReducer"]:
-        reducer = globals()[config['reducer']](device, timer, K=config['K'], quantization_level=config['quantization_level'])
+        reducer = globals()[config['reducer']](device, timer, K=config['K'],
+                                               quantization_level=config['quantization_level'])
     elif config['reducer'] in ["TopKReducer", "GlobalTopKReducer"]:
         reducer = globals()[config['reducer']](device, timer, K=config['K'])
     elif config['reducer'] in ["TopKReducerRatio", "GlobalTopKReducerRatio"]:
         reducer = globals()[config['reducer']](device, timer, compression=config['compression'])
+    elif config['reducer'] in ['QSGDMaxNormTwoScaleReducer']:
+        reducer = globals()[config['reducer']](device, timer, lower_quantization_level=config['quantization_level'],
+                                               higher_quantization_level=config['higher_quantization_level'])
+    elif config['reducer'] in ['GlobalRandKMaxNormTwoScaleReducer']:
+        reducer = globals()[config['reducer']](device, timer, lower_quantization_level=config['quantization_level'],
+                                               higher_quantization_level=config['higher_quantization_level'])
     else:
         raise NotImplementedError("Reducer method not implemented")
 
     lr = config['lr']
     bits_communicated = 0
+
+    global_iteration_count = 0
     model = CIFAR(device, timer, config['architecture'], config['seed'] + local_rank)
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
-    optimizer = optim.SGD(params=model.parameters, lr=lr)
+    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9)
     scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
 
     for epoch in range(config['num_epochs']):
         if local_rank == 0:
-            logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch}, {"lr": scheduler.get_last_lr()})
+            logger.log_info("epoch info", {"Progress": epoch / config["num_epochs"], "Current_epoch": epoch},
+                            {"lr": scheduler.get_last_lr()})
 
         epoch_metrics = AverageMeter(device)
 
         train_loader = model.train_dataloader(config['batch_size'])
         for i, batch in enumerate(train_loader):
+            global_iteration_count += 1
             epoch_frac = epoch + i / model.len_train_loader
 
             with timer("batch", epoch_frac):
                 _, grads, metrics = model.batch_loss_with_gradients(batch)
                 epoch_metrics.add(metrics)
 
-                with timer("batch.accumulate", epoch_frac, verbosity=2):
-                    for grad, send_buffer in zip(grads, send_buffers):
-                        send_buffer[:] = grad
+                if global_iteration_count % config['local_steps'] == 0:
+                    with timer("batch.accumulate", epoch_frac, verbosity=2):
+                        for grad, send_buffer in zip(grads, send_buffers):
+                            send_buffer[:] = grad
 
-                with timer("batch.reduce", epoch_frac):
-                    bits_communicated += reducer.reduce(send_buffers, grads)
+                    with timer("batch.reduce", epoch_frac):
+                        bits_communicated += reducer.reduce(send_buffers, grads)
 
                 with timer("batch.step", epoch_frac, verbosity=2):
                     optimizer.step()

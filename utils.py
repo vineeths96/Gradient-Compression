@@ -83,7 +83,7 @@ def plot_top1_accuracy_curves(log_path):
 
     for group_ind, experiment_group in enumerate(experiment_groups):
         fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([.35, .15, .3, .3])
+        axes_inner = plt.axes([.25, .15, .3, .3])
         axes_inner_range = list(range(30, 60))
 
         experiment_group.sort()
@@ -138,7 +138,7 @@ def plot_top5_accuracy_curves(log_path):
 
     for group_ind, experiment_group in enumerate(experiment_groups):
         fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([.35, .15, .3, .3])
+        axes_inner = plt.axes([.25, .15, .3, .3])
         axes_inner_range = list(range(5, 25))
 
         experiment_group.sort()
@@ -193,7 +193,7 @@ def plot_top1_accuracy_time_curves(log_path):
 
     for group_ind, experiment_group in enumerate(experiment_groups):
         fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([.35, .15, .3, .3])
+        axes_inner = plt.axes([.25, .15, .3, .3])
         axes_inner_range = list(range(30, 60))
 
         experiment_group.sort()

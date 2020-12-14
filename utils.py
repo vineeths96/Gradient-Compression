@@ -28,7 +28,7 @@ def plot_loss_curves(log_path):
 
     for group_ind, experiment_group in enumerate(experiment_groups):
         fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([.35, .6, .3, .3])
+        axes_inner = plt.axes([.25, .6, .3, .3])
         axes_inner_range = list(range(40, 80))
 
         experiment_group.sort()
@@ -36,6 +36,7 @@ def plot_loss_curves(log_path):
         for ind, experiment in enumerate(experiment_group):
             reducer = None
             quant_level = None
+            higher_quant_level = None
             compression = None
 
             with open(os.path.join(experiment, 'success.txt')) as file:
@@ -47,10 +48,15 @@ def plot_loss_curves(log_path):
                     if line.startswith("quantization_level"):
                         quant_level = line.split(': ')[-1]
 
+                    if line.startswith("higher_quantization_level"):
+                        higher_quant_level = line.split(': ')[-1]
+
                     if line.startswith("compression"):
                         compression = line.split(': ')[-1]
 
-            if quant_level:
+            if higher_quant_level:
+                label = ' '.join([reducer, quant_level, '&', higher_quant_level, 'bits'])
+            elif quant_level:
                 label = ' '.join([reducer, quant_level, 'bits'])
             elif compression:
                 label = ' '.join([reducer, 'K:', compression])
@@ -91,6 +97,7 @@ def plot_top1_accuracy_curves(log_path):
         for ind, experiment in enumerate(experiment_group):
             reducer = None
             quant_level = None
+            higher_quant_level = None
             compression = None
 
             with open(os.path.join(experiment, 'success.txt')) as file:
@@ -102,10 +109,15 @@ def plot_top1_accuracy_curves(log_path):
                     if line.startswith("quantization_level"):
                         quant_level = line.split(': ')[-1]
 
+                    if line.startswith("higher_quantization_level"):
+                        higher_quant_level = line.split(': ')[-1]
+
                     if line.startswith("compression"):
                         compression = line.split(': ')[-1]
 
-            if quant_level:
+            if higher_quant_level:
+                label = ' '.join([reducer, quant_level, '&', higher_quant_level, 'bits'])
+            elif quant_level:
                 label = ' '.join([reducer, quant_level, 'bits'])
             elif compression:
                 label = ' '.join([reducer, 'K:', compression])
@@ -146,6 +158,7 @@ def plot_top5_accuracy_curves(log_path):
         for ind, experiment in enumerate(experiment_group):
             reducer = None
             quant_level = None
+            higher_quant_level = None
             compression = None
 
             with open(os.path.join(experiment, 'success.txt')) as file:
@@ -157,10 +170,15 @@ def plot_top5_accuracy_curves(log_path):
                     if line.startswith("quantization_level"):
                         quant_level = line.split(': ')[-1]
 
+                    if line.startswith("higher_quantization_level"):
+                        higher_quant_level = line.split(': ')[-1]
+
                     if line.startswith("compression"):
                         compression = line.split(': ')[-1]
 
-            if quant_level:
+            if higher_quant_level:
+                label = ' '.join([reducer, quant_level, '&', higher_quant_level, 'bits'])
+            elif quant_level:
                 label = ' '.join([reducer, quant_level, 'bits'])
             elif compression:
                 label = ' '.join([reducer, 'K:', compression])
@@ -201,6 +219,7 @@ def plot_top1_accuracy_time_curves(log_path):
         for ind, experiment in enumerate(experiment_group):
             reducer = None
             quant_level = None
+            higher_quant_level = None
             compression = None
 
             with open(os.path.join(experiment, 'success.txt')) as file:
@@ -212,10 +231,15 @@ def plot_top1_accuracy_time_curves(log_path):
                     if line.startswith("quantization_level"):
                         quant_level = line.split(': ')[-1]
 
+                    if line.startswith("higher_quantization_level"):
+                        higher_quant_level = line.split(': ')[-1]
+
                     if line.startswith("compression"):
                         compression = line.split(': ')[-1]
 
-            if quant_level:
+            if higher_quant_level:
+                label = ' '.join([reducer, quant_level, '&', higher_quant_level, 'bits'])
+            elif quant_level:
                 label = ' '.join([reducer, quant_level, 'bits'])
             elif compression:
                 label = ' '.join([reducer, 'K:', compression])
@@ -255,6 +279,7 @@ def plot_time_per_batch_curves(log_path):
         for ind, experiment in enumerate(experiment_group):
             reducer = None
             quant_level = None
+            higher_quant_level = None
             compression = None
 
             with open(os.path.join(experiment, 'success.txt')) as file:
@@ -266,10 +291,15 @@ def plot_time_per_batch_curves(log_path):
                     if line.startswith("quantization_level"):
                         quant_level = line.split(': ')[-1]
 
+                    if line.startswith("higher_quantization_level"):
+                        higher_quant_level = line.split(': ')[-1]
+
                     if line.startswith("compression"):
                         compression = line.split(': ')[-1]
 
-                if quant_level:
+                if higher_quant_level:
+                    label = ' '.join([reducer, quant_level, '&', higher_quant_level, 'bits'])
+                elif quant_level:
                     label = ' '.join([reducer, quant_level, 'bits'])
                 elif compression:
                     label = ' '.join([reducer, 'K:', compression])
@@ -315,6 +345,7 @@ def plot_time_breakdown(log_path):
         for ind, experiment in enumerate(experiment_group):
             reducer = None
             quant_level = None
+            higher_quant_level = None
             compression = None
 
             with open(os.path.join(experiment, 'success.txt')) as file:
@@ -326,10 +357,15 @@ def plot_time_breakdown(log_path):
                     if line.startswith("quantization_level"):
                         quant_level = line.split(': ')[-1]
 
+                    if line.startswith("higher_quantization_level"):
+                        higher_quant_level = line.split(': ')[-1]
+
                     if line.startswith("compression"):
                         compression = line.split(': ')[-1]
 
-                if quant_level:
+                if higher_quant_level:
+                    label = ' '.join([reducer, quant_level, '&', higher_quant_level, 'bits'])
+                elif quant_level:
                     label = ' '.join([reducer, quant_level, 'bits'])
                 elif compression:
                     label = ' '.join([reducer, 'K:', compression])
@@ -376,6 +412,7 @@ def plot_time_scalability(log_path):
             for ind, experiment in enumerate(experiment_group):
                 reducer = None
                 quant_level = None
+                higher_quant_level = None
                 compression = None
                 num_epochs = None
 
@@ -388,13 +425,18 @@ def plot_time_scalability(log_path):
                         if line.startswith("quantization_level"):
                             quant_level = line.split(': ')[-1]
 
+                        if line.startswith("higher_quantization_level"):
+                            higher_quant_level = line.split(': ')[-1]
+
                         if line.startswith("compression"):
                             compression = line.split(': ')[-1]
 
                         if line.startswith("num_epochs"):
                             num_epochs = int(line.split(': ')[-1])
 
-                    if quant_level:
+                    if higher_quant_level:
+                        label = ' '.join([reducer, quant_level, '&', higher_quant_level, 'bits'])
+                    elif quant_level:
                         label = ' '.join([reducer, quant_level, 'bits'])
                     elif compression:
                         label = ' '.join([reducer, 'K:', compression])
@@ -458,6 +500,7 @@ def plot_throughput_scalability(log_path):
             for ind, experiment in enumerate(experiment_group):
                 reducer = None
                 quant_level = None
+                higher_quant_level = None
                 compression = None
 
                 with open(os.path.join(experiment, 'success.txt')) as file:
@@ -469,10 +512,15 @@ def plot_throughput_scalability(log_path):
                         if line.startswith("quantization_level"):
                             quant_level = line.split(': ')[-1]
 
+                        if line.startswith("higher_quantization_level"):
+                            higher_quant_level = line.split(': ')[-1]
+
                         if line.startswith("compression"):
                             compression = line.split(': ')[-1]
 
-                    if quant_level:
+                    if higher_quant_level:
+                        label = ' '.join([reducer, quant_level, '&', higher_quant_level, 'bits'])
+                    elif quant_level:
                         label = ' '.join([reducer, quant_level, 'bits'])
                     elif compression:
                         label = ' '.join([reducer, 'K:', compression])
@@ -521,5 +569,5 @@ if __name__ == '__main__':
     plot_top5_accuracy_curves(os.path.join(root_log_path, 'convergence'))
     plot_time_per_batch_curves(os.path.join(root_log_path, 'convergence'))
     plot_time_breakdown(os.path.join(root_log_path, 'time_breakdown'))
-    plot_time_scalability(os.path.join(root_log_path, 'scalability'))
-    plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
+    # plot_time_scalability(os.path.join(root_log_path, 'scalability'))
+    # plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))

@@ -1593,19 +1593,16 @@ class QSGDMaxNormTwoScaleReducer(Reducer):
                 max_norm = norm
 
         with self._timer("reduce.compress", verbosity=2):
-            higher_resolution_mask = compressor.calculate_masks(max_norm, flat_grad.buffer)
+            sign_xi_array_lower = compressor.compress_lower(max_norm, flat_grad.buffer)
+            sign_xi_array_higher, higher_resolution_mask = compressor.compress_higher(max_norm, flat_grad.buffer)
 
             if self.n_workers > 1:
                 high_mask_op = torch.distributed.all_reduce(tensor=higher_resolution_mask,
                                                             op=torch.distributed.ReduceOp.PRODUCT,
                                                             async_op=True)
                 high_mask_op.wait()
-
             else:
                 higher_resolution_mask = higher_resolution_mask
-
-            sign_xi_array_lower = compressor.compress(max_norm, flat_grad.buffer, self._lower_quantization_level)
-            sign_xi_array_higher = compressor.compress(max_norm, flat_grad.buffer, self._higher_quantization_level)
 
             sign_xi_array = higher_resolution_mask * sign_xi_array_higher + (
                     1 - higher_resolution_mask) * sign_xi_array_lower
@@ -1683,7 +1680,8 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
                 max_norm = norm
 
         with self._timer("reduce.compress", verbosity=2):
-            higher_resolution_mask = compressor.calculate_masks(max_norm, RandK_flat_grad)
+            sign_xi_array_lower = compressor.compress_lower(max_norm, RandK_flat_grad)
+            sign_xi_array_higher, higher_resolution_mask = compressor.compress_higher(max_norm, RandK_flat_grad)
 
             if self.n_workers > 1:
                 high_mask_op = torch.distributed.all_reduce(tensor=higher_resolution_mask,
@@ -1693,9 +1691,6 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
 
             else:
                 higher_resolution_mask = higher_resolution_mask
-
-            sign_xi_array_lower = compressor.compress(max_norm, RandK_flat_grad, self._lower_quantization_level)
-            sign_xi_array_higher = compressor.compress(max_norm, RandK_flat_grad, self._higher_quantization_level)
 
             sign_xi_array = higher_resolution_mask * sign_xi_array_higher + (
                     1 - higher_resolution_mask) * sign_xi_array_lower

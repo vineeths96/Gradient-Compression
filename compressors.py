@@ -662,22 +662,8 @@ class QSGDMaxNormTwoScaleCompressor:
         else:
             self._dtype = torch.int32
 
-    def calculate_masks(self, norm, tensor):
-        s_lower = (1 << self._lower_quantization_level) - 1
-        s_higher = (1 << self._higher_quantization_level) - 1
-
-        l_array_higher = torch.abs(tensor) / norm * s_higher
-        l_array_higher_floored = l_array_higher.to(dtype=torch.int32)
-        prob_array_higher = l_array_higher - l_array_higher_floored
-
-        mask_higher = torch.bernoulli(prob_array_higher)
-        xi_array_higher = l_array_higher_floored + mask_higher
-        higher_resolution_mask = (xi_array_higher <= s_lower).to(torch.int8)
-
-        return higher_resolution_mask
-
-    def compress(self, norm, tensor, quantization_level=6):
-        s = (1 << quantization_level) - 1
+    def compress_lower(self, norm, tensor):
+        s = (1 << self._lower_quantization_level) - 1
 
         sign_array = torch.sign(tensor).to(dtype=torch.int8)
 
@@ -693,6 +679,26 @@ class QSGDMaxNormTwoScaleCompressor:
         sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
+
+    def compress_higher(self, norm, tensor):
+        s_lower = (1 << self._lower_quantization_level) - 1
+        s_higher = (1 << self._higher_quantization_level) - 1
+
+        sign_array = torch.sign(tensor).to(dtype=torch.int8)
+
+        l_array = torch.abs(tensor) / norm * s_higher
+        l_array_floored = l_array.to(dtype=torch.int32)
+        prob_array = l_array - l_array_floored
+        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+        mask = torch.bernoulli(prob_array)
+        xi_array = l_array_floored + mask
+        xi_array = xi_array.to(dtype=torch.int32)
+
+        higher_resolution_mask = (xi_array <= s_lower).to(torch.int8)
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+
+        return sign_xi_array, higher_resolution_mask
 
     def decompress(self, norm, sign_xi_array, higher_resolution_mask):
         s_lower = (1 << self._lower_quantization_level) - 1
@@ -725,22 +731,8 @@ class GlobalRandKMaxNormTwoScaleCompressor:
         else:
             self._dtype = torch.int32
 
-    def calculate_masks(self, norm, tensor):
-        s_lower = (1 << self._lower_quantization_level) - 1
-        s_higher = (1 << self._higher_quantization_level) - 1
-
-        l_array_higher = torch.abs(tensor) / norm * s_higher
-        l_array_higher_floored = l_array_higher.to(dtype=torch.int32)
-        prob_array_higher = l_array_higher - l_array_higher_floored
-
-        mask_higher = torch.bernoulli(prob_array_higher)
-        xi_array_higher = l_array_higher_floored + mask_higher
-        higher_resolution_mask = (xi_array_higher <= s_lower).to(torch.int8)
-
-        return higher_resolution_mask
-
-    def compress(self, norm, tensor, quantization_level=6):
-        s = (1 << quantization_level) - 1
+    def compress_lower(self, norm, tensor):
+        s = (1 << self._lower_quantization_level) - 1
 
         sign_array = torch.sign(tensor).to(dtype=torch.int8)
 
@@ -756,6 +748,26 @@ class GlobalRandKMaxNormTwoScaleCompressor:
         sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
+
+    def compress_higher(self, norm, tensor):
+        s_lower = (1 << self._lower_quantization_level) - 1
+        s_higher = (1 << self._higher_quantization_level) - 1
+
+        sign_array = torch.sign(tensor).to(dtype=torch.int8)
+
+        l_array = torch.abs(tensor) / norm * s_higher
+        l_array_floored = l_array.to(dtype=torch.int32)
+        prob_array = l_array - l_array_floored
+        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
+
+        mask = torch.bernoulli(prob_array)
+        xi_array = l_array_floored + mask
+        xi_array = xi_array.to(dtype=torch.int32)
+
+        higher_resolution_mask = (xi_array <= s_lower).to(torch.int8)
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+
+        return sign_xi_array, higher_resolution_mask
 
     def decompress(self, norm, sign_xi_array, higher_resolution_mask):
         s_lower = (1 << self._lower_quantization_level) - 1

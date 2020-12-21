@@ -28,30 +28,32 @@ class CIFAR:
         self._criterion = torch.nn.CrossEntropyLoss().to(self._device)
         self.parameters = [parameter for parameter in self._model.parameters()]
 
-    def _load_dataset(self, data_path='./data'):
+    def _load_dataset(self, data_path="./data"):
         mean = (0.4914, 0.4822, 0.4465)
         std_dev = (0.247, 0.243, 0.261)
 
-        transform_train = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std_dev)
-        ])
+        transform_train = transforms.Compose(
+            [
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std_dev),
+            ]
+        )
 
-        transform_test = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std_dev),
-        ])
+        transform_test = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize(mean, std_dev),
+            ]
+        )
 
-        train_set = torchvision.datasets.CIFAR10(root=data_path,
-                                                 train=True,
-                                                 download=True,
-                                                 transform=transform_train)
-        test_set = torchvision.datasets.CIFAR10(root=data_path,
-                                                train=False,
-                                                download=True,
-                                                transform=transform_test)
+        train_set = torchvision.datasets.CIFAR10(
+            root=data_path, train=True, download=True, transform=transform_train
+        )
+        test_set = torchvision.datasets.CIFAR10(
+            root=data_path, train=False, download=True, transform=transform_test
+        )
 
         return train_set, test_set
 
@@ -67,12 +69,14 @@ class CIFAR:
         train_sampler = DistributedSampler(dataset=self._train_set)
         train_sampler.set_epoch(self._epoch)
 
-        train_loader = DataLoader(dataset=self._train_set,
-                                  batch_size=batch_size,
-                                  sampler=train_sampler,
-                                  pin_memory=True,
-                                  drop_last=True,
-                                  num_workers=2)
+        train_loader = DataLoader(
+            dataset=self._train_set,
+            batch_size=batch_size,
+            sampler=train_sampler,
+            pin_memory=True,
+            drop_last=True,
+            num_workers=2,
+        )
 
         self.len_train_loader = len(train_loader)
 
@@ -87,12 +91,14 @@ class CIFAR:
     def test_dataloader(self, batch_size=32):
         test_sampler = DistributedSampler(dataset=self._test_set)
 
-        test_loader = DataLoader(dataset=self._test_set,
-                                 batch_size=batch_size,
-                                 sampler=test_sampler,
-                                 pin_memory=True,
-                                 drop_last=True,
-                                 num_workers=2)
+        test_loader = DataLoader(
+            dataset=self._test_set,
+            batch_size=batch_size,
+            sampler=test_sampler,
+            pin_memory=True,
+            drop_last=True,
+            num_workers=2,
+        )
 
         self.len_test_loader = len(test_loader)
 
@@ -151,12 +157,14 @@ class CIFAR:
 
         with torch.no_grad():
             cross_entropy_loss = self._criterion(pred_labels, true_labels)
-            top1_accuracy, top5_accuracy = accuracy(pred_labels, true_labels, topk=(1, 5))
+            top1_accuracy, top5_accuracy = accuracy(
+                pred_labels, true_labels, topk=(1, 5)
+            )
 
         return {
             "cross_entropy_loss": cross_entropy_loss.item(),
             "top1_accuracy": top1_accuracy.item(),
-            "top5_accuracy": top5_accuracy.item()
+            "top5_accuracy": top5_accuracy.item(),
         }
 
     def state_dict(self):

@@ -1,6 +1,7 @@
 import torch
 import struct
 import bitpacking
+
 # import gpu_bitpacking
 import numpy as np
 
@@ -15,7 +16,9 @@ class NoneCompressor:
 
     def compress(self, tensor):
         compressed_tensor = tensor
-        compressed_tensor_size = torch.tensor(compressed_tensor.size(), device=self._device)
+        compressed_tensor_size = torch.tensor(
+            compressed_tensor.size(), device=self._device
+        )
 
         return compressed_tensor, compressed_tensor_size
 
@@ -75,11 +78,17 @@ class QSGDCompressor:
 
         code_int_list = []
         for i in range(len(code) // self._sign_int_bit + 1):
-            code_chunk = '1' + code[i * self._sign_int_bit: (i + 1) * self._sign_int_bit]
+            code_chunk = (
+                "1" + code[i * self._sign_int_bit : (i + 1) * self._sign_int_bit]
+            )
             code_int_list.append(int(code_chunk, 2))
 
-        compressed_tensor = torch.tensor(code_int_list, dtype=torch.int64, device=self._device)
-        compressed_tensor_size = torch.tensor(compressed_tensor.size(), device=self._device)
+        compressed_tensor = torch.tensor(
+            code_int_list, dtype=torch.int64, device=self._device
+        )
+        compressed_tensor_size = torch.tensor(
+            compressed_tensor.size(), device=self._device
+        )
 
         return compressed_tensor, compressed_tensor_size
 
@@ -119,10 +128,10 @@ class QSGDCompressor:
         return norm * sign_array * xi_array
 
     def float_to_bin(self, num):
-        return format(struct.unpack('!I', struct.pack('!f', num))[0], '032b')
+        return format(struct.unpack("!I", struct.pack("!f", num))[0], "032b")
 
     def bin_to_float(self, binary):
-        return struct.unpack('!f', struct.pack('!I', int(binary, 2)))[0]
+        return struct.unpack("!f", struct.pack("!I", int(binary, 2)))[0]
 
     def elias_encode(self, n):
         elias_code = "0"
@@ -138,8 +147,8 @@ class QSGDCompressor:
         n = 1
 
         while elias_code[0] != "0":
-            m = int(elias_code[:n + 1], 2)
-            elias_code = elias_code[n + 1:]
+            m = int(elias_code[: n + 1], 2)
+            elias_code = elias_code[n + 1 :]
             n = m
 
         elias_code = elias_code[1:]
@@ -219,7 +228,9 @@ class QSGDWECModCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+        sign_xi_array = (sign_array * xi_array).to(
+            dtype=self._dtype, device=self._device
+        )
         norm = norm / s
 
         return norm, sign_xi_array
@@ -309,7 +320,9 @@ class QSGDMaxNormCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+        sign_xi_array = (sign_array * xi_array).to(
+            dtype=self._dtype, device=self._device
+        )
 
         return sign_xi_array
 
@@ -349,8 +362,8 @@ class QSGDBPCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_packed = bitpacking.packing(sign_array.to('cpu')).to(device=self._device)
-        xi_packed = bitpacking.packing(xi_array.to('cpu')).to(device=self._device)
+        sign_packed = bitpacking.packing(sign_array.to("cpu")).to(device=self._device)
+        xi_packed = bitpacking.packing(xi_array.to("cpu")).to(device=self._device)
         xi_size = torch.tensor(xi_packed.size(), device=self._device)
 
         # sign_packed = gpu_bitpacking.packing(sign_array)
@@ -362,9 +375,9 @@ class QSGDBPCompressor:
         return norm, sign_packed, xi_packed, xi_size
 
     def decompress(self, norm, sign_packed, xi_packed, tensor_size):
-        sign_array = bitpacking.unpacking(sign_packed.to('cpu')).to(device=self._device)
+        sign_array = bitpacking.unpacking(sign_packed.to("cpu")).to(device=self._device)
         sign_array = sign_array[:tensor_size]
-        xi_array = bitpacking.unpacking(xi_packed.to('cpu')).to(device=self._device)
+        xi_array = bitpacking.unpacking(xi_packed.to("cpu")).to(device=self._device)
         xi_array = xi_array[:tensor_size]
 
         sign_array[sign_array == 1] = -1
@@ -400,13 +413,17 @@ class QSGDBPAllReduceCompressor:
         xi_array = xi_array.to(dtype=torch.int32)
 
         sign_xi_array = sign_array * xi_array
-        sign_xi_packed = bitpacking.packing(sign_xi_array.to('cpu')).to(device=self._device)
+        sign_xi_packed = bitpacking.packing(sign_xi_array.to("cpu")).to(
+            device=self._device
+        )
 
         return sign_xi_packed
 
     def decompress(self, norm, sign_xi_array):
         s = (1 << self._quantization_level) - 1
-        sign_xi_unpacked = bitpacking.unpacking(sign_xi_array.to('cpu')).to(device=self._device)
+        sign_xi_unpacked = bitpacking.unpacking(sign_xi_array.to("cpu")).to(
+            device=self._device
+        )
 
         return norm / s * sign_xi_unpacked
 
@@ -441,7 +458,9 @@ class GlobalRandKMaxNormCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+        sign_xi_array = (sign_array * xi_array).to(
+            dtype=self._dtype, device=self._device
+        )
 
         return sign_xi_array
 
@@ -481,7 +500,9 @@ class MaxNormGlobalRandKCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+        sign_xi_array = (sign_array * xi_array).to(
+            dtype=self._dtype, device=self._device
+        )
 
         return sign_xi_array
 
@@ -507,14 +528,14 @@ class NUQSGDModCompressor:
             self._dtype = torch.int32
 
     def compress(self, tensor):
-        s = (1 << self._quantization_level)
+        s = 1 << self._quantization_level
 
         norm = torch.norm(tensor)
         sign_array = torch.sign(tensor).to(dtype=torch.int8)
 
         r_array = torch.abs(tensor) / norm * s
         floored_log2 = torch.floor(torch.log2(r_array))
-        floored_log2[floored_log2 < 0] = -float('inf')
+        floored_log2[floored_log2 < 0] = -float("inf")
         lsr = torch.pow(2, floored_log2)
         lsr_1 = torch.pow(2, floored_log2 + 1)
         lsr_1[lsr_1 == 0] = 1
@@ -551,13 +572,13 @@ class NUQSGDMaxNormCompressor:
             self._dtype = torch.int32
 
     def compress(self, norm, tensor):
-        s = (1 << self._quantization_level)
+        s = 1 << self._quantization_level
 
         sign_array = torch.sign(tensor).to(dtype=torch.int8)
 
         r_array = torch.abs(tensor) / norm * s
         floored_log2 = torch.floor(torch.log2(r_array))
-        floored_log2[floored_log2 < 0] = -float('inf')
+        floored_log2[floored_log2 < 0] = -float("inf")
         lsr = torch.pow(2, floored_log2)
         lsr_1 = torch.pow(2, floored_log2 + 1)
         lsr_1[lsr_1 == 0] = 1
@@ -573,7 +594,7 @@ class NUQSGDMaxNormCompressor:
         return sign_h_array
 
     def decompress(self, norm, sign_h_array):
-        s = (1 << self._quantization_level)
+        s = 1 << self._quantization_level
 
         return norm / s * sign_h_array
 
@@ -625,13 +646,13 @@ class NUQSGDMaxNormBiasedCompressor:
             self._dtype = torch.int32
 
     def compress(self, norm, tensor):
-        s = (1 << self._quantization_level)
+        s = 1 << self._quantization_level
 
         sign_array = torch.sign(tensor).to(dtype=torch.int8)
 
         r_array = torch.abs(tensor) / norm * s
         floored_log2 = torch.floor(torch.log2(r_array))
-        floored_log2[floored_log2 < 0] = -float('inf')
+        floored_log2[floored_log2 < 0] = -float("inf")
         lsr = torch.pow(2, floored_log2)
 
         l_array_floored = (sign_array * lsr).to(dtype=self._dtype, device=self._device)
@@ -639,7 +660,7 @@ class NUQSGDMaxNormBiasedCompressor:
         return l_array_floored
 
     def decompress(self, norm, l_array_floored):
-        s = (1 << self._quantization_level)
+        s = 1 << self._quantization_level
 
         return norm / s * l_array_floored
 
@@ -652,7 +673,9 @@ class QSGDMaxNormTwoScaleCompressor:
     Code: sign array * xi array.
     """
 
-    def __init__(self, device, lower_quantization_level=6, higher_quantization_level=10):
+    def __init__(
+        self, device, lower_quantization_level=6, higher_quantization_level=10
+    ):
         self._device = device
         self._lower_quantization_level = lower_quantization_level
         self._higher_quantization_level = higher_quantization_level
@@ -676,7 +699,9 @@ class QSGDMaxNormTwoScaleCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+        sign_xi_array = (sign_array * xi_array).to(
+            dtype=self._dtype, device=self._device
+        )
 
         return sign_xi_array
 
@@ -696,7 +721,9 @@ class QSGDMaxNormTwoScaleCompressor:
         xi_array = xi_array.to(dtype=torch.int32)
 
         higher_resolution_mask = (xi_array <= s_lower).to(torch.int8)
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+        sign_xi_array = (sign_array * xi_array).to(
+            dtype=self._dtype, device=self._device
+        )
 
         return sign_xi_array, higher_resolution_mask
 
@@ -707,8 +734,10 @@ class QSGDMaxNormTwoScaleCompressor:
         decompressed_lower_scale = norm / s_lower * sign_xi_array
         decompressed_higher_scale = norm / s_higher * sign_xi_array
 
-        decompressed_tensor = higher_resolution_mask * decompressed_higher_scale + (
-                1 - higher_resolution_mask) * decompressed_lower_scale
+        decompressed_tensor = (
+            higher_resolution_mask * decompressed_higher_scale
+            + (1 - higher_resolution_mask) * decompressed_lower_scale
+        )
 
         return decompressed_tensor
 
@@ -721,7 +750,9 @@ class GlobalRandKMaxNormTwoScaleCompressor:
     Code: sign array * xi array.
     """
 
-    def __init__(self, device, lower_quantization_level=6, higher_quantization_level=10):
+    def __init__(
+        self, device, lower_quantization_level=6, higher_quantization_level=10
+    ):
         self._device = device
         self._lower_quantization_level = lower_quantization_level
         self._higher_quantization_level = higher_quantization_level
@@ -745,7 +776,9 @@ class GlobalRandKMaxNormTwoScaleCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+        sign_xi_array = (sign_array * xi_array).to(
+            dtype=self._dtype, device=self._device
+        )
 
         return sign_xi_array
 
@@ -765,7 +798,9 @@ class GlobalRandKMaxNormTwoScaleCompressor:
         xi_array = xi_array.to(dtype=torch.int32)
 
         higher_resolution_mask = (xi_array <= s_lower).to(torch.int8)
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+        sign_xi_array = (sign_array * xi_array).to(
+            dtype=self._dtype, device=self._device
+        )
 
         return sign_xi_array, higher_resolution_mask
 
@@ -776,7 +811,9 @@ class GlobalRandKMaxNormTwoScaleCompressor:
         decompressed_lower_scale = norm / s_lower * sign_xi_array
         decompressed_higher_scale = norm / s_higher * sign_xi_array
 
-        decompressed_tensor = higher_resolution_mask * decompressed_higher_scale + (
-                1 - higher_resolution_mask) * decompressed_lower_scale
+        decompressed_tensor = (
+            higher_resolution_mask * decompressed_higher_scale
+            + (1 - higher_resolution_mask) * decompressed_lower_scale
+        )
 
         return decompressed_tensor

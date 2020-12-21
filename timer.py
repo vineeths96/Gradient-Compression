@@ -82,8 +82,14 @@ class Timer:
             with StringIO() as buffer:
                 # total_avg_time = 0
                 total_time = 0
-                print("--- Timer summary -----------------------------------------------", file=buffer)
-                print("  Event                          |  Count | Average time |  Frac.", file=buffer)
+                print(
+                    "--- Timer summary -----------------------------------------------",
+                    file=buffer,
+                )
+                print(
+                    "  Event                          |  Count | Average time |  Frac.",
+                    file=buffer,
+                )
                 for event_label in sorted(self.totals):
                     total = self.totals[event_label]
                     count = self.call_counts[event_label]
@@ -91,7 +97,7 @@ class Timer:
                         continue
                     avg_duration = total / count
                     total_runtime = (
-                            self.last_time[event_label] - self.first_time[event_label]
+                        self.last_time[event_label] - self.first_time[event_label]
                     )
                     runtime_percentage = 100 * total / total_runtime
                     # total_avg_time += avg_duration if "." not in event_label else 0
@@ -100,13 +106,19 @@ class Timer:
                         f"- {event_label:30s} | {count:6d} | {avg_duration:11.5f}s | {runtime_percentage:5.1f}%",
                         file=buffer,
                     )
-                print("-----------------------------------------------------------------", file=buffer)
+                print(
+                    "-----------------------------------------------------------------",
+                    file=buffer,
+                )
                 event_label = "total_time"
                 print(
                     f"- {event_label:30s} | {count:6d} | {total_time:11.5f}s |",
                     file=buffer,
                 )
-                print("-----------------------------------------------------------------", file=buffer)
+                print(
+                    "-----------------------------------------------------------------",
+                    file=buffer,
+                )
                 return buffer.getvalue()
 
     def save_summary(self, json_file_path):
@@ -144,4 +156,6 @@ class Timer:
             tag_list.append(f"{key}:{tag}")
         tags = ", ".join(tag_list)
 
-        print("{name:20s} - {values} ({tags})".format(name=name, values=values, tags=tags))
+        print(
+            "{name:20s} - {values} ({tags})".format(name=name, values=values, tags=tags)
+        )

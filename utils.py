@@ -59,9 +59,7 @@ def plot_loss_curves(log_path):
                         compression = line.split(": ")[-1]
 
             if higher_quant_level:
-                label = " ".join(
-                    [reducer, quant_level, "&", higher_quant_level, "bits"]
-                )
+                label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
             elif quant_level:
                 label = " ".join([reducer, quant_level, "bits"])
             elif compression:
@@ -69,9 +67,7 @@ def plot_loss_curves(log_path):
             else:
                 label = reducer
 
-            log_dict = np.load(
-                os.path.join(experiment, "log_dict.npy"), allow_pickle=True
-            )
+            log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             loss = log_dict[()].get("loss")
             axes_main.plot(loss, label=label)
 
@@ -133,9 +129,7 @@ def plot_top1_accuracy_curves(log_path):
                         compression = line.split(": ")[-1]
 
             if higher_quant_level:
-                label = " ".join(
-                    [reducer, quant_level, "&", higher_quant_level, "bits"]
-                )
+                label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
             elif quant_level:
                 label = " ".join([reducer, quant_level, "bits"])
             elif compression:
@@ -143,9 +137,7 @@ def plot_top1_accuracy_curves(log_path):
             else:
                 label = reducer
 
-            log_dict = np.load(
-                os.path.join(experiment, "log_dict.npy"), allow_pickle=True
-            )
+            log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             top1_accuracy = log_dict[()].get("test_top1_accuracy")
             axes_main.plot(top1_accuracy, label=label)
 
@@ -207,9 +199,7 @@ def plot_top5_accuracy_curves(log_path):
                         compression = line.split(": ")[-1]
 
             if higher_quant_level:
-                label = " ".join(
-                    [reducer, quant_level, "&", higher_quant_level, "bits"]
-                )
+                label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
             elif quant_level:
                 label = " ".join([reducer, quant_level, "bits"])
             elif compression:
@@ -217,9 +207,7 @@ def plot_top5_accuracy_curves(log_path):
             else:
                 label = reducer
 
-            log_dict = np.load(
-                os.path.join(experiment, "log_dict.npy"), allow_pickle=True
-            )
+            log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             top5_accuracy = log_dict[()].get("test_top5_accuracy")
             axes_main.plot(top5_accuracy, label=label)
 
@@ -281,9 +269,7 @@ def plot_top1_accuracy_time_curves(log_path):
                         compression = line.split(": ")[-1]
 
             if higher_quant_level:
-                label = " ".join(
-                    [reducer, quant_level, "&", higher_quant_level, "bits"]
-                )
+                label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
             elif quant_level:
                 label = " ".join([reducer, quant_level, "bits"])
             elif compression:
@@ -291,9 +277,7 @@ def plot_top1_accuracy_time_curves(log_path):
             else:
                 label = reducer
 
-            log_dict = np.load(
-                os.path.join(experiment, "log_dict.npy"), allow_pickle=True
-            )
+            log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             top1_accuracy = log_dict[()].get("test_top1_accuracy")
             time = log_dict[()].get("time")
             axes_main.plot(time, top1_accuracy, label=label)
@@ -354,9 +338,7 @@ def plot_time_per_batch_curves(log_path):
                         compression = line.split(": ")[-1]
 
                 if higher_quant_level:
-                    label = " ".join(
-                        [reducer, quant_level, "&", higher_quant_level, "bits"]
-                    )
+                    label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
                 elif quant_level:
                     label = " ".join([reducer, quant_level, "bits"])
                 elif compression:
@@ -364,9 +346,7 @@ def plot_time_per_batch_curves(log_path):
                 else:
                     label = reducer
 
-            log_dict = np.load(
-                os.path.join(experiment, "log_dict.npy"), allow_pickle=True
-            )
+            log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             time = log_dict[()].get("time")
             epoch_time = np.zeros(len(time) - 1)
 
@@ -431,9 +411,7 @@ def plot_time_breakdown(log_path):
                         compression = line.split(": ")[-1]
 
                 if higher_quant_level:
-                    label = " ".join(
-                        [reducer, quant_level, "&", higher_quant_level, "bits"]
-                    )
+                    label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
                 elif quant_level:
                     label = " ".join([reducer, quant_level, "bits"])
                 elif compression:
@@ -441,9 +419,7 @@ def plot_time_breakdown(log_path):
                 else:
                     label = reducer
 
-            time_df = pd.read_json(os.path.join(experiment, "timer_summary.json")).loc[
-                "average_duration"
-            ]
+            time_df = pd.read_json(os.path.join(experiment, "timer_summary.json")).loc["average_duration"]
             time_values = time_df[time_labels].values
 
             plt.bar(
@@ -476,9 +452,7 @@ def plot_time_scalability(log_path):
         events = np.arange(len(GPUs))
 
         time_dfs = {model: None for model in models}
-        experiment_groups = [
-            glob.glob(f"{log_path}/{instance}/*/*{model}") for model in models
-        ]
+        experiment_groups = [glob.glob(f"{log_path}/{instance}/*/*{model}") for model in models]
 
         for group_ind, experiment_group in enumerate(experiment_groups):
             time_results = []
@@ -513,9 +487,7 @@ def plot_time_scalability(log_path):
                             num_epochs = int(line.split(": ")[-1])
 
                     if higher_quant_level:
-                        label = " ".join(
-                            [reducer, quant_level, "&", higher_quant_level, "bits"]
-                        )
+                        label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
                     elif quant_level:
                         label = " ".join([reducer, quant_level, "bits"])
                     elif compression:
@@ -528,16 +500,12 @@ def plot_time_scalability(log_path):
                     compressor_ind_map[label] = latest_compressor_ind
                     latest_compressor_ind += 1
 
-                time_df = pd.read_json(
-                    os.path.join(experiment, "timer_summary.json")
-                ).loc["total_time"]
+                time_df = pd.read_json(os.path.join(experiment, "timer_summary.json")).loc["total_time"]
                 time_values = time_df[time_labels].values / num_epochs
 
                 time_results[compressor_ind_map[label]].append(float(time_values))
 
-            time_dfs[models[group_ind]] = pd.DataFrame(
-                time_results, index=compressor_ind_map.keys()
-            )
+            time_dfs[models[group_ind]] = pd.DataFrame(time_results, index=compressor_ind_map.keys())
 
         for df_key in time_dfs:
             plt.figure(figsize=[10, 7])
@@ -577,9 +545,7 @@ def plot_throughput_scalability(log_path):
         events = np.arange(len(GPUs))
 
         throughput_dfs = {model: None for model in models}
-        experiment_groups = [
-            glob.glob(f"{log_path}/{instance}/*/*{model}") for model in models
-        ]
+        experiment_groups = [glob.glob(f"{log_path}/{instance}/*/*{model}") for model in models]
 
         for group_ind, experiment_group in enumerate(experiment_groups):
             throughput_results = []
@@ -610,9 +576,7 @@ def plot_throughput_scalability(log_path):
                             compression = line.split(": ")[-1]
 
                     if higher_quant_level:
-                        label = " ".join(
-                            [reducer, quant_level, "&", higher_quant_level, "bits"]
-                        )
+                        label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
                     elif quant_level:
                         label = " ".join([reducer, quant_level, "bits"])
                     elif compression:
@@ -625,17 +589,13 @@ def plot_throughput_scalability(log_path):
                     compressor_ind_map[label] = latest_compressor_ind
                     latest_compressor_ind += 1
 
-                time_df = pd.read_json(
-                    os.path.join(experiment, "timer_summary.json")
-                ).loc["average_duration"]
+                time_df = pd.read_json(os.path.join(experiment, "timer_summary.json")).loc["average_duration"]
                 num_GPUs = int(experiment.split("/")[5].split()[0])
                 throughput = (128 * num_GPUs) / time_df[time_labels].values
 
                 throughput_results[compressor_ind_map[label]].append(int(throughput))
 
-            throughput_dfs[models[group_ind]] = pd.DataFrame(
-                throughput_results, index=compressor_ind_map.keys()
-            )
+            throughput_dfs[models[group_ind]] = pd.DataFrame(throughput_results, index=compressor_ind_map.keys())
 
         for df_key in throughput_dfs:
             plt.figure(figsize=[10, 7])

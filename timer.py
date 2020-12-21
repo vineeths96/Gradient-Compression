@@ -70,9 +70,7 @@ class Timer:
             # linearly with the number of time we have seen it.
             # It will always be recorded in the totals, though.
             if np.random.rand() < 1 / self.call_counts[label]:
-                self.log_fn(
-                    "timer", {"epoch": epoch, "value": end - start}, {"event": label}
-                )
+                self.log_fn("timer", {"epoch": epoch, "value": end - start}, {"event": label})
 
     def summary(self):
         """
@@ -96,9 +94,7 @@ class Timer:
                     if count == 0:
                         continue
                     avg_duration = total / count
-                    total_runtime = (
-                        self.last_time[event_label] - self.first_time[event_label]
-                    )
+                    total_runtime = self.last_time[event_label] - self.first_time[event_label]
                     runtime_percentage = 100 * total / total_runtime
                     # total_avg_time += avg_duration if "." not in event_label else 0
                     total_time += total if event_label == "batch" else 0
@@ -156,6 +152,4 @@ class Timer:
             tag_list.append(f"{key}:{tag}")
         tags = ", ".join(tag_list)
 
-        print(
-            "{name:20s} - {values} ({tags})".format(name=name, values=values, tags=tags)
-        )
+        print("{name:20s} - {values} ({tags})".format(name=name, values=values, tags=tags))

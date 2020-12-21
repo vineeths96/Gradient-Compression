@@ -56,10 +56,7 @@ config = dict(
 
 
 def initiate_distributed():
-    env_dict = {
-        key: os.environ[key]
-        for key in ("MASTER_ADDR", "MASTER_PORT", "RANK", "WORLD_SIZE")
-    }
+    env_dict = {key: os.environ[key] for key in ("MASTER_ADDR", "MASTER_PORT", "RANK", "WORLD_SIZE")}
 
     print(f"[{os.getpid()}] Initializing Process Group with: {env_dict}")
     dist.init_process_group(backend=config["distributed_backend"], init_method="env://")
@@ -105,9 +102,7 @@ def train(local_rank, log_path):
         "NUQSGDMaxNormBiasedMemoryReducer",
         "QSGDMaxNormMaskReducer",
     ]:
-        reducer = globals()[config["reducer"]](
-            device, timer, quantization_level=config["quantization_level"]
-        )
+        reducer = globals()[config["reducer"]](device, timer, quantization_level=config["quantization_level"])
     elif config["reducer"] in [
         "GlobalRandKMaxNormReducer",
         "MaxNormGlobalRandKReducer",
@@ -121,9 +116,7 @@ def train(local_rank, log_path):
     elif config["reducer"] in ["TopKReducer", "GlobalTopKReducer"]:
         reducer = globals()[config["reducer"]](device, timer, K=config["K"])
     elif config["reducer"] in ["TopKReducerRatio", "GlobalTopKReducerRatio"]:
-        reducer = globals()[config["reducer"]](
-            device, timer, compression=config["compression"]
-        )
+        reducer = globals()[config["reducer"]](device, timer, compression=config["compression"])
     elif config["reducer"] in ["QSGDMaxNormTwoScaleReducer"]:
         reducer = globals()[config["reducer"]](
             device,

@@ -5,9 +5,7 @@ import torch.nn.functional as F
 
 
 class Bottleneck(nn.Module):
-    def __init__(
-        self, last_planes, in_planes, out_planes, dense_depth, stride, first_layer
-    ):
+    def __init__(self, last_planes, in_planes, out_planes, dense_depth, stride, first_layer):
         super(Bottleneck, self).__init__()
         self.out_planes = out_planes
         self.dense_depth = dense_depth
@@ -24,9 +22,7 @@ class Bottleneck(nn.Module):
             bias=False,
         )
         self.bn2 = nn.BatchNorm2d(in_planes)
-        self.conv3 = nn.Conv2d(
-            in_planes, out_planes + dense_depth, kernel_size=1, bias=False
-        )
+        self.conv3 = nn.Conv2d(in_planes, out_planes + dense_depth, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(out_planes + dense_depth)
 
         self.shortcut = nn.Sequential()
@@ -48,9 +44,7 @@ class Bottleneck(nn.Module):
         out = self.bn3(self.conv3(out))
         x = self.shortcut(x)
         d = self.out_planes
-        out = torch.cat(
-            [x[:, :d, :, :] + out[:, :d, :, :], x[:, d:, :, :], out[:, d:, :, :]], 1
-        )
+        out = torch.cat([x[:, :d, :, :] + out[:, :d, :, :], x[:, d:, :, :], out[:, d:, :, :]], 1)
         out = F.relu(out)
         return out
 
@@ -64,31 +58,17 @@ class DPN(nn.Module):
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.last_planes = 64
-        self.layer1 = self._make_layer(
-            in_planes[0], out_planes[0], num_blocks[0], dense_depth[0], stride=1
-        )
-        self.layer2 = self._make_layer(
-            in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2
-        )
-        self.layer3 = self._make_layer(
-            in_planes[2], out_planes[2], num_blocks[2], dense_depth[2], stride=2
-        )
-        self.layer4 = self._make_layer(
-            in_planes[3], out_planes[3], num_blocks[3], dense_depth[3], stride=2
-        )
-        self.linear = nn.Linear(
-            out_planes[3] + (num_blocks[3] + 1) * dense_depth[3], 10
-        )
+        self.layer1 = self._make_layer(in_planes[0], out_planes[0], num_blocks[0], dense_depth[0], stride=1)
+        self.layer2 = self._make_layer(in_planes[1], out_planes[1], num_blocks[1], dense_depth[1], stride=2)
+        self.layer3 = self._make_layer(in_planes[2], out_planes[2], num_blocks[2], dense_depth[2], stride=2)
+        self.layer4 = self._make_layer(in_planes[3], out_planes[3], num_blocks[3], dense_depth[3], stride=2)
+        self.linear = nn.Linear(out_planes[3] + (num_blocks[3] + 1) * dense_depth[3], 10)
 
     def _make_layer(self, in_planes, out_planes, num_blocks, dense_depth, stride):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for i, stride in enumerate(strides):
-            layers.append(
-                Bottleneck(
-                    self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0
-                )
-            )
+            layers.append(Bottleneck(self.last_planes, in_planes, out_planes, dense_depth, stride, i == 0))
             self.last_planes = out_planes + (i + 2) * dense_depth
         return nn.Sequential(*layers)
 

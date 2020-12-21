@@ -95,9 +95,7 @@ class RegNet(nn.Module):
         layers = []
         for i in range(depth):
             s = stride if i == 0 else 1
-            layers.append(
-                Block(self.in_planes, width, s, group_width, bottleneck_ratio, se_ratio)
-            )
+            layers.append(Block(self.in_planes, width, s, group_width, bottleneck_ratio, se_ratio))
             self.in_planes = width
         return nn.Sequential(*layers)
 

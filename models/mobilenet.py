@@ -23,9 +23,7 @@ class Block(nn.Module):
             bias=False,
         )
         self.bn1 = nn.BatchNorm2d(in_planes)
-        self.conv2 = nn.Conv2d(
-            in_planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False
-        )
+        self.conv2 = nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn2 = nn.BatchNorm2d(out_planes)
 
     def forward(self, x):

@@ -58,9 +58,7 @@ class Block(nn.Module):
 
         # Expansion
         channels = expand_ratio * in_channels
-        self.conv1 = nn.Conv2d(
-            in_channels, channels, kernel_size=1, stride=1, padding=0, bias=False
-        )
+        self.conv1 = nn.Conv2d(in_channels, channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn1 = nn.BatchNorm2d(channels)
 
         # Depthwise conv
@@ -80,9 +78,7 @@ class Block(nn.Module):
         self.se = SE(channels, se_channels)
 
         # Output
-        self.conv3 = nn.Conv2d(
-            channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False
-        )
+        self.conv3 = nn.Conv2d(channels, out_channels, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn3 = nn.BatchNorm2d(out_channels)
 
         # Skip connection if in and out shapes are the same (MV-V2 style)

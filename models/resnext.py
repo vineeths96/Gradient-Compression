@@ -27,9 +27,7 @@ class Block(nn.Module):
             bias=False,
         )
         self.bn2 = nn.BatchNorm2d(group_width)
-        self.conv3 = nn.Conv2d(
-            group_width, self.expansion * group_width, kernel_size=1, bias=False
-        )
+        self.conv3 = nn.Conv2d(group_width, self.expansion * group_width, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(self.expansion * group_width)
 
         self.shortcut = nn.Sequential()
@@ -73,9 +71,7 @@ class ResNeXt(nn.Module):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
-            layers.append(
-                Block(self.in_planes, self.cardinality, self.bottleneck_width, stride)
-            )
+            layers.append(Block(self.in_planes, self.cardinality, self.bottleneck_width, stride))
             self.in_planes = Block.expansion * self.cardinality * self.bottleneck_width
         # Increase bottleneck_width by 2 after each stage.
         self.bottleneck_width *= 2

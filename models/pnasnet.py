@@ -33,9 +33,7 @@ class CellA(nn.Module):
         self.stride = stride
         self.sep_conv1 = SepConv(in_planes, out_planes, kernel_size=7, stride=stride)
         if stride == 2:
-            self.conv1 = nn.Conv2d(
-                in_planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False
-            )
+            self.conv1 = nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False)
             self.bn1 = nn.BatchNorm2d(out_planes)
 
     def forward(self, x):
@@ -56,14 +54,10 @@ class CellB(nn.Module):
         # Right branch
         self.sep_conv3 = SepConv(in_planes, out_planes, kernel_size=5, stride=stride)
         if stride == 2:
-            self.conv1 = nn.Conv2d(
-                in_planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False
-            )
+            self.conv1 = nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False)
             self.bn1 = nn.BatchNorm2d(out_planes)
         # Reduce channels
-        self.conv2 = nn.Conv2d(
-            2 * out_planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False
-        )
+        self.conv2 = nn.Conv2d(2 * out_planes, out_planes, kernel_size=1, stride=1, padding=0, bias=False)
         self.bn2 = nn.BatchNorm2d(out_planes)
 
     def forward(self, x):
@@ -88,9 +82,7 @@ class PNASNet(nn.Module):
         self.in_planes = num_planes
         self.cell_type = cell_type
 
-        self.conv1 = nn.Conv2d(
-            3, num_planes, kernel_size=3, stride=1, padding=1, bias=False
-        )
+        self.conv1 = nn.Conv2d(3, num_planes, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(num_planes)
 
         self.layer1 = self._make_layer(num_planes, num_cells=6)

@@ -16,9 +16,7 @@ class NoneCompressor:
 
     def compress(self, tensor):
         compressed_tensor = tensor
-        compressed_tensor_size = torch.tensor(
-            compressed_tensor.size(), device=self._device
-        )
+        compressed_tensor_size = torch.tensor(compressed_tensor.size(), device=self._device)
 
         return compressed_tensor, compressed_tensor_size
 
@@ -78,17 +76,11 @@ class QSGDCompressor:
 
         code_int_list = []
         for i in range(len(code) // self._sign_int_bit + 1):
-            code_chunk = (
-                "1" + code[i * self._sign_int_bit : (i + 1) * self._sign_int_bit]
-            )
+            code_chunk = "1" + code[i * self._sign_int_bit : (i + 1) * self._sign_int_bit]
             code_int_list.append(int(code_chunk, 2))
 
-        compressed_tensor = torch.tensor(
-            code_int_list, dtype=torch.int64, device=self._device
-        )
-        compressed_tensor_size = torch.tensor(
-            compressed_tensor.size(), device=self._device
-        )
+        compressed_tensor = torch.tensor(code_int_list, dtype=torch.int64, device=self._device)
+        compressed_tensor_size = torch.tensor(compressed_tensor.size(), device=self._device)
 
         return compressed_tensor, compressed_tensor_size
 
@@ -228,9 +220,7 @@ class QSGDWECModCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(
-            dtype=self._dtype, device=self._device
-        )
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
         norm = norm / s
 
         return norm, sign_xi_array
@@ -320,9 +310,7 @@ class QSGDMaxNormCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(
-            dtype=self._dtype, device=self._device
-        )
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
 
@@ -413,17 +401,13 @@ class QSGDBPAllReduceCompressor:
         xi_array = xi_array.to(dtype=torch.int32)
 
         sign_xi_array = sign_array * xi_array
-        sign_xi_packed = bitpacking.packing(sign_xi_array.to("cpu")).to(
-            device=self._device
-        )
+        sign_xi_packed = bitpacking.packing(sign_xi_array.to("cpu")).to(device=self._device)
 
         return sign_xi_packed
 
     def decompress(self, norm, sign_xi_array):
         s = (1 << self._quantization_level) - 1
-        sign_xi_unpacked = bitpacking.unpacking(sign_xi_array.to("cpu")).to(
-            device=self._device
-        )
+        sign_xi_unpacked = bitpacking.unpacking(sign_xi_array.to("cpu")).to(device=self._device)
 
         return norm / s * sign_xi_unpacked
 
@@ -458,9 +442,7 @@ class GlobalRandKMaxNormCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(
-            dtype=self._dtype, device=self._device
-        )
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
 
@@ -500,9 +482,7 @@ class MaxNormGlobalRandKCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(
-            dtype=self._dtype, device=self._device
-        )
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
 
@@ -673,9 +653,7 @@ class QSGDMaxNormTwoScaleCompressor:
     Code: sign array * xi array.
     """
 
-    def __init__(
-        self, device, lower_quantization_level=6, higher_quantization_level=10
-    ):
+    def __init__(self, device, lower_quantization_level=6, higher_quantization_level=10):
         self._device = device
         self._lower_quantization_level = lower_quantization_level
         self._higher_quantization_level = higher_quantization_level
@@ -699,9 +677,7 @@ class QSGDMaxNormTwoScaleCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(
-            dtype=self._dtype, device=self._device
-        )
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
 
@@ -721,9 +697,7 @@ class QSGDMaxNormTwoScaleCompressor:
         xi_array = xi_array.to(dtype=torch.int32)
 
         higher_resolution_mask = (xi_array <= s_lower).to(torch.int8)
-        sign_xi_array = (sign_array * xi_array).to(
-            dtype=self._dtype, device=self._device
-        )
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array, higher_resolution_mask
 
@@ -750,9 +724,7 @@ class GlobalRandKMaxNormTwoScaleCompressor:
     Code: sign array * xi array.
     """
 
-    def __init__(
-        self, device, lower_quantization_level=6, higher_quantization_level=10
-    ):
+    def __init__(self, device, lower_quantization_level=6, higher_quantization_level=10):
         self._device = device
         self._lower_quantization_level = lower_quantization_level
         self._higher_quantization_level = higher_quantization_level
@@ -776,9 +748,7 @@ class GlobalRandKMaxNormTwoScaleCompressor:
         xi_array = l_array_floored + mask
         xi_array = xi_array.to(dtype=torch.int32)
 
-        sign_xi_array = (sign_array * xi_array).to(
-            dtype=self._dtype, device=self._device
-        )
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
 
@@ -798,9 +768,7 @@ class GlobalRandKMaxNormTwoScaleCompressor:
         xi_array = xi_array.to(dtype=torch.int32)
 
         higher_resolution_mask = (xi_array <= s_lower).to(torch.int8)
-        sign_xi_array = (sign_array * xi_array).to(
-            dtype=self._dtype, device=self._device
-        )
+        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array, higher_resolution_mask
 

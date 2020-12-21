@@ -48,12 +48,8 @@ class CIFAR:
             ]
         )
 
-        train_set = torchvision.datasets.CIFAR10(
-            root=data_path, train=True, download=True, transform=transform_train
-        )
-        test_set = torchvision.datasets.CIFAR10(
-            root=data_path, train=False, download=True, transform=transform_test
-        )
+        train_set = torchvision.datasets.CIFAR10(root=data_path, train=True, download=True, transform=transform_train)
+        test_set = torchvision.datasets.CIFAR10(root=data_path, train=False, download=True, transform=transform_test)
 
         return train_set, test_set
 
@@ -157,9 +153,7 @@ class CIFAR:
 
         with torch.no_grad():
             cross_entropy_loss = self._criterion(pred_labels, true_labels)
-            top1_accuracy, top5_accuracy = accuracy(
-                pred_labels, true_labels, topk=(1, 5)
-            )
+            top1_accuracy, top5_accuracy = accuracy(pred_labels, true_labels, topk=(1, 5))
 
         return {
             "cross_entropy_loss": cross_entropy_loss.item(),

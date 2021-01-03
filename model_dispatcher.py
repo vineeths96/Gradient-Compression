@@ -1,5 +1,6 @@
 import torch
 import torchvision
+import torch.distributed as dist
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, DistributedSampler
 
@@ -71,7 +72,7 @@ class CIFAR:
             sampler=train_sampler,
             pin_memory=True,
             drop_last=True,
-            num_workers=2,
+            num_workers=dist.get_world_size(),
         )
 
         self.len_train_loader = len(train_loader)
@@ -93,7 +94,7 @@ class CIFAR:
             sampler=test_sampler,
             pin_memory=True,
             drop_last=True,
-            num_workers=2,
+            num_workers=dist.get_world_size(),
         )
 
         self.len_test_loader = len(test_loader)

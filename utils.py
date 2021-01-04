@@ -1,5 +1,6 @@
 import os
 import glob
+import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -442,7 +443,8 @@ def plot_time_breakdown(log_path):
 def plot_time_scalability(log_path):
     time_labels = ["batch"]
     models = ["ResNet50", "VGG16"]
-    instances = ["P2", "P3", "P2 Multi Node", "P3 Multi Node"]
+    # instances = ["P2", "P3", "P2 Multi Node", "P3 Multi Node"]
+    instances = ["P3", "P3 Multi Node"]
 
     for instance in instances:
         GPUs = os.listdir(os.path.join(log_path, instance))
@@ -535,7 +537,8 @@ def plot_time_scalability(log_path):
 def plot_throughput_scalability(log_path):
     time_labels = ["batch"]
     models = ["ResNet50", "VGG16"]
-    instances = ["P2", "P3", "P2 Multi Node", "P3 Multi Node"]
+    # instances = ["P2", "P3", "P2 Multi Node", "P3 Multi Node"]
+    instances = ["P3", "P3 Multi Node"]
 
     for instance in instances:
         GPUs = os.listdir(os.path.join(log_path, instance))
@@ -622,14 +625,62 @@ def plot_throughput_scalability(log_path):
             plt.show()
 
 
+def plot_waiting_times(log_path):
+    models = {"ResNet50": 1, "VGG16": 2}
+    instances = ["P3 Waiting Time", "P3 Waiting Time Multi Node"]
+
+    for instance in instances:
+        Ls = os.listdir(os.path.join(log_path, instance))
+
+        for L in Ls:
+            GPUs = os.listdir(os.path.join(log_path, instance, L))
+            GPUs.sort()
+
+            [plt.figure(ind) for _, ind in models.items()]
+            for GPU in GPUs:
+                files = glob.glob(f'{log_path}/{instance}/{L}/{GPU}/*.pkl')
+
+                for file in files:
+                    model_name = file.split('_')[-1].split('.')[0]
+                    plt.figure(models[model_name])
+
+                    with open(file, 'rb') as file:
+                        waiting_time = pickle.load(file)
+
+                    from scipy.stats import gaussian_kde
+                    data = waiting_time[1:]
+                    density = gaussian_kde(data)
+
+                    if "Multi Node" in instance:
+                        xs = np.linspace(0, 2e-4, 200)
+                    else:
+                        xs = np.linspace(0, 5e-5, 200)
+
+                    # density.covariance_factor = lambda: .25
+                    # density._compute_covariance()
+                    plt.plot(xs, density(xs), label=GPU)
+                    plt.title(f'{model_name}_{instance}_{L}')
+
+                    plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
+                    plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+                    plt.legend()
+                    plt.grid()
+                    plt.savefig(f"./plots/waiting_times_{model_name}_{L}_{instance}.png")
+                    plt.grid()
+
+            plt.show()
+
+
 if __name__ == "__main__":
     root_log_path = "./logs/plot_logs/"
 
-    plot_loss_curves(os.path.join(root_log_path, "convergence"))
-    plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
-    plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
-    plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
-    plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
-    plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
-    # plot_time_scalability(os.path.join(root_log_path, 'scalability'))
-    # plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
+    # plot_loss_curves(os.path.join(root_log_path, "convergence"))
+    # plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    # plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
+    # plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
+    # plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
+    plot_time_scalability(os.path.join(root_log_path, 'scalability'))
+    plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
+    plot_waiting_times(os.path.join(root_log_path, 'waiting_times'))

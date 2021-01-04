@@ -3,13 +3,22 @@ import torch.distributed
 
 from compressors import (
     NoneCompressor,
-    QSGDCompressor, QSGDWECCompressor, QSGDWECModCompressor,
-    TernGradCompressor, TernGradModCompressor,
-    QSGDMaxNormCompressor, QSGDBPAllReduceCompressor, QSGDBPCompressor,
-    GlobalRandKMaxNormCompressor, MaxNormGlobalRandKCompressor,
-    NUQSGDModCompressor, NUQSGDMaxNormCompressor,
-    QSGDMaxNormBiasedCompressor, NUQSGDMaxNormBiasedCompressor,
-    QSGDMaxNormTwoScaleCompressor, GlobalRandKMaxNormTwoScaleCompressor,
+    QSGDCompressor,
+    QSGDWECCompressor,
+    QSGDWECModCompressor,
+    TernGradCompressor,
+    TernGradModCompressor,
+    QSGDMaxNormCompressor,
+    QSGDBPAllReduceCompressor,
+    QSGDBPCompressor,
+    GlobalRandKMaxNormCompressor,
+    MaxNormGlobalRandKCompressor,
+    NUQSGDModCompressor,
+    NUQSGDMaxNormCompressor,
+    QSGDMaxNormBiasedCompressor,
+    NUQSGDMaxNormBiasedCompressor,
+    QSGDMaxNormTwoScaleCompressor,
+    GlobalRandKMaxNormTwoScaleCompressor,
 )
 
 
@@ -52,7 +61,7 @@ class TensorBuffer:
         self.buffer = torch.cat([tensor.view(-1) for tensor in tensors])
 
     def __getitem__(self, index):
-        return self.buffer[self._start_idx[index]: self._end_idx[index]].view(self._tensor_shapes[index])
+        return self.buffer[self._start_idx[index] : self._end_idx[index]].view(self._tensor_shapes[index])
 
     def __len__(self):
         return self._len_tensors
@@ -78,22 +87,26 @@ class NoneReducer(Reducer):
 
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
-                collected_tensor_sizes = [torch.empty_like(compressed_tensor_size)
-                                          for _ in range(self.n_workers)]
-                size_gather_op = torch.distributed.all_gather(tensor_list=collected_tensor_sizes,
-                                                              tensor=compressed_tensor_size,
-                                                              async_op=True)
+                collected_tensor_sizes = [torch.empty_like(compressed_tensor_size) for _ in range(self.n_workers)]
+                size_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_tensor_sizes,
+                    tensor=compressed_tensor_size,
+                    async_op=True,
+                )
                 size_gather_op.wait()
 
                 max_size = max(collected_tensor_sizes).item()
                 padded_compressed_tensors = torch.zeros(max_size, dtype=torch.int64, device=self._device)
                 padded_compressed_tensors[:compressed_tensor_size] = compressed_tensor
 
-                collected_tensors = [torch.zeros(max_size, dtype=torch.int64, device=self._device)
-                                     for _ in range(self.n_workers)]
-                tensor_gather_op = torch.distributed.all_gather(tensor_list=collected_tensors,
-                                                                tensor=padded_compressed_tensors,
-                                                                async_op=True)
+                collected_tensors = [
+                    torch.zeros(max_size, dtype=torch.int64, device=self._device) for _ in range(self.n_workers)
+                ]
+                tensor_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_tensors,
+                    tensor=padded_compressed_tensors,
+                    async_op=True,
+                )
                 tensor_gather_op.wait()
             else:
                 collected_tensors = [compressed_tensor]
@@ -140,8 +153,7 @@ class NoneAllReducer(Reducer):
 
         with self._timer("reduce.allreduce", verbosity=2):
             if self.n_workers > 1:
-                tensor_reduce_op = torch.distributed.all_reduce(tensor=flat_grad.buffer,
-                                                                async_op=True)
+                tensor_reduce_op = torch.distributed.all_reduce(tensor=flat_grad.buffer, async_op=True)
                 tensor_reduce_op.wait()
             else:
                 flat_grad = flat_grad
@@ -183,22 +195,26 @@ class QSGDReducer(Reducer):
 
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
-                collected_tensor_sizes = [torch.empty_like(compressed_tensor_size)
-                                          for _ in range(self.n_workers)]
-                size_gather_op = torch.distributed.all_gather(tensor_list=collected_tensor_sizes,
-                                                              tensor=compressed_tensor_size,
-                                                              async_op=True)
+                collected_tensor_sizes = [torch.empty_like(compressed_tensor_size) for _ in range(self.n_workers)]
+                size_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_tensor_sizes,
+                    tensor=compressed_tensor_size,
+                    async_op=True,
+                )
                 size_gather_op.wait()
 
                 max_size = max(collected_tensor_sizes).item()
                 padded_compressed_tensors = torch.zeros(max_size, dtype=torch.int64, device=self._device)
                 padded_compressed_tensors[:compressed_tensor_size] = compressed_tensor
 
-                collected_tensors = [torch.zeros(max_size, dtype=torch.int64, device=self._device) \
-                                     for _ in range(self.n_workers)]
-                tensor_gather_op = torch.distributed.all_gather(tensor_list=collected_tensors,
-                                                                tensor=padded_compressed_tensors,
-                                                                async_op=True)
+                collected_tensors = [
+                    torch.zeros(max_size, dtype=torch.int64, device=self._device) for _ in range(self.n_workers)
+                ]
+                tensor_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_tensors,
+                    tensor=padded_compressed_tensors,
+                    async_op=True,
+                )
                 tensor_gather_op.wait()
             else:
                 collected_tensors = [compressed_tensor]
@@ -252,19 +268,15 @@ class QSGDWECReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 collected_signs = [torch.empty_like(sign_array) for _ in range(self.n_workers)]
-                signs_gather_op = torch.distributed.all_gather(tensor_list=collected_signs,
-                                                               tensor=sign_array,
-                                                               async_op=True)
+                signs_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_signs, tensor=sign_array, async_op=True
+                )
 
                 collected_xis = [torch.empty_like(xi_array) for _ in range(self.n_workers)]
-                xi_gather_op = torch.distributed.all_gather(tensor_list=collected_xis,
-                                                            tensor=xi_array,
-                                                            async_op=True)
+                xi_gather_op = torch.distributed.all_gather(tensor_list=collected_xis, tensor=xi_array, async_op=True)
 
                 norms_gather_op.wait()
                 signs_gather_op.wait()
@@ -322,14 +334,12 @@ class QSGDWECModReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 collected_sign_xis = [torch.empty_like(sign_xi_array) for _ in range(self.n_workers)]
-                sign_xis_gather_op = torch.distributed.all_gather(tensor_list=collected_sign_xis,
-                                                                  tensor=sign_xi_array,
-                                                                  async_op=True)
+                sign_xis_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_sign_xis, tensor=sign_xi_array, async_op=True
+                )
 
                 norms_gather_op.wait()
                 sign_xis_gather_op.wait()
@@ -384,19 +394,17 @@ class TernGradReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_scalers = [torch.empty_like(scaler) for _ in range(self.n_workers)]
-                scaler_gather_op = torch.distributed.all_gather(tensor_list=collected_scalers,
-                                                                tensor=scaler,
-                                                                async_op=True)
+                scaler_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_scalers, tensor=scaler, async_op=True
+                )
 
                 collected_signs = [torch.empty_like(sign_array) for _ in range(self.n_workers)]
-                signs_gather_op = torch.distributed.all_gather(tensor_list=collected_signs,
-                                                               tensor=sign_array,
-                                                               async_op=True)
+                signs_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_signs, tensor=sign_array, async_op=True
+                )
 
                 collected_bs = [torch.empty_like(b_array) for _ in range(self.n_workers)]
-                b_gather_op = torch.distributed.all_gather(tensor_list=collected_bs,
-                                                           tensor=b_array,
-                                                           async_op=True)
+                b_gather_op = torch.distributed.all_gather(tensor_list=collected_bs, tensor=b_array, async_op=True)
 
                 scaler_gather_op.wait()
                 signs_gather_op.wait()
@@ -453,14 +461,14 @@ class TernGradModReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_scalers = [torch.empty_like(scaler) for _ in range(self.n_workers)]
-                scaler_gather_op = torch.distributed.all_gather(tensor_list=collected_scalers,
-                                                                tensor=scaler,
-                                                                async_op=True)
+                scaler_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_scalers, tensor=scaler, async_op=True
+                )
 
                 collected_sign_bs = [torch.empty_like(sign_b_array) for _ in range(self.n_workers)]
-                sign_bs_gather_op = torch.distributed.all_gather(tensor_list=collected_sign_bs,
-                                                                 tensor=sign_b_array,
-                                                                 async_op=True)
+                sign_bs_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_sign_bs, tensor=sign_b_array, async_op=True
+                )
 
                 scaler_gather_op.wait()
                 sign_bs_gather_op.wait()
@@ -515,9 +523,7 @@ class QSGDMaxNormReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -529,8 +535,7 @@ class QSGDMaxNormReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array,
-                                                                 async_op=True)
+                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array, async_op=True)
                 sign_xi_reduce_op.wait()
                 sign_xi_array.true_divide(self.n_workers)
             else:
@@ -580,19 +585,17 @@ class QSGDBPReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 collected_signs = [torch.empty_like(sign_packed) for _ in range(self.n_workers)]
-                signs_gather_op = torch.distributed.all_gather(tensor_list=collected_signs,
-                                                               tensor=sign_packed,
-                                                               async_op=True)
+                signs_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_signs, tensor=sign_packed, async_op=True
+                )
 
                 collected_xi_sizes = [torch.empty_like(xi_size) for _ in range(self.n_workers)]
-                size_gather_op = torch.distributed.all_gather(tensor_list=collected_xi_sizes,
-                                                              tensor=xi_size,
-                                                              async_op=True)
+                size_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_xi_sizes, tensor=xi_size, async_op=True
+                )
                 size_gather_op.wait()
 
                 max_size = max(collected_xi_sizes).item()
@@ -600,9 +603,9 @@ class QSGDBPReducer(Reducer):
                 padded_xi_tensor[:xi_size] = xi_packed
 
                 collected_xis = [torch.empty_like(padded_xi_tensor) for _ in range(self.n_workers)]
-                xi_gather_op = torch.distributed.all_gather(tensor_list=collected_xis,
-                                                            tensor=padded_xi_tensor,
-                                                            async_op=True)
+                xi_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_xis, tensor=padded_xi_tensor, async_op=True
+                )
 
                 norms_gather_op.wait()
                 signs_gather_op.wait()
@@ -612,8 +615,9 @@ class QSGDBPReducer(Reducer):
                 collected_signs = [sign_packed]
                 collected_xis = [xi_packed]
 
-        bits_communicated += self.n_bits(norm) + self.n_bits(sign_packed) + self.n_bits(xi_packed) + self.n_bits(
-            xi_size)
+        bits_communicated += (
+            self.n_bits(norm) + self.n_bits(sign_packed) + self.n_bits(xi_packed) + self.n_bits(xi_size)
+        )
 
         with self._timer("reduce.decompress", verbosity=2):
             decompressed_tensors = []
@@ -660,9 +664,7 @@ class QSGDBPAllReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -674,8 +676,7 @@ class QSGDBPAllReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array,
-                                                                 async_op=True)
+                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array, async_op=True)
                 sign_xi_reduce_op.wait()
                 sign_xi_array.true_divide(self.n_workers)
             else:
@@ -732,9 +733,7 @@ class GlobalRandKMaxNormReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -746,8 +745,7 @@ class GlobalRandKMaxNormReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array,
-                                                                 async_op=True)
+                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array, async_op=True)
                 sign_xi_reduce_op.wait()
                 sign_xi_array.true_divide(self.n_workers)
             else:
@@ -808,9 +806,7 @@ class MaxNormGlobalRandKReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -823,8 +819,7 @@ class MaxNormGlobalRandKReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array,
-                                                                 async_op=True)
+                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array, async_op=True)
                 sign_xi_reduce_op.wait()
                 sign_xi_array.true_divide(self.n_workers)
             else:
@@ -875,14 +870,12 @@ class NUQSGDModReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 collected_sign_xis = [torch.empty_like(sign_xi_array) for _ in range(self.n_workers)]
-                sign_xis_gather_op = torch.distributed.all_gather(tensor_list=collected_sign_xis,
-                                                                  tensor=sign_xi_array,
-                                                                  async_op=True)
+                sign_xis_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_sign_xis, tensor=sign_xi_array, async_op=True
+                )
 
                 norms_gather_op.wait()
                 sign_xis_gather_op.wait()
@@ -937,9 +930,7 @@ class NUQSGDMaxNormReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -951,8 +942,7 @@ class NUQSGDMaxNormReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array,
-                                                                 async_op=True)
+                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array, async_op=True)
                 sign_xi_reduce_op.wait()
                 sign_xi_array.true_divide(self.n_workers)
             else:
@@ -1000,9 +990,7 @@ class QSGDMaxNormBiasedReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -1014,8 +1002,7 @@ class QSGDMaxNormBiasedReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored,
-                                                                  async_op=True)
+                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored, async_op=True)
                 l_array_floored_op.wait()
                 l_array_floored.true_divide(self.n_workers)
             else:
@@ -1070,9 +1057,7 @@ class QSGDMaxNormBiasedMemoryReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -1087,8 +1072,7 @@ class QSGDMaxNormBiasedMemoryReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored,
-                                                                  async_op=True)
+                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored, async_op=True)
                 l_array_floored_op.wait()
                 l_array_floored.true_divide(self.n_workers)
             else:
@@ -1136,9 +1120,7 @@ class NUQSGDMaxNormBiasedReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -1150,8 +1132,7 @@ class NUQSGDMaxNormBiasedReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored,
-                                                                  async_op=True)
+                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored, async_op=True)
                 l_array_floored_op.wait()
                 l_array_floored.true_divide(self.n_workers)
             else:
@@ -1206,9 +1187,7 @@ class NUQSGDMaxNormBiasedMemoryReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -1223,8 +1202,7 @@ class NUQSGDMaxNormBiasedMemoryReducer(Reducer):
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored,
-                                                                  async_op=True)
+                l_array_floored_op = torch.distributed.all_reduce(tensor=l_array_floored, async_op=True)
                 l_array_floored_op.wait()
                 l_array_floored.true_divide(self.n_workers)
             else:
@@ -1300,14 +1278,16 @@ class TopKReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_values = [torch.empty_like(flat_values) for _ in range(self.n_workers)]
-                values_gather_op = torch.distributed.all_gather(tensor_list=collected_values,
-                                                                tensor=flat_values,
-                                                                async_op=True)
+                values_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_values, tensor=flat_values, async_op=True
+                )
 
                 collected_positions = [torch.empty_like(flat_positions) for _ in range(self.n_workers)]
-                positions_gather_op = torch.distributed.all_gather(tensor_list=collected_positions,
-                                                                   tensor=flat_positions,
-                                                                   async_op=True)
+                positions_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_positions,
+                    tensor=flat_positions,
+                    async_op=True,
+                )
 
                 values_gather_op.wait()
                 positions_gather_op.wait()
@@ -1382,14 +1362,16 @@ class TopKReducerRatio(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_values = [torch.empty_like(flat_values) for _ in range(self.n_workers)]
-                values_gather_op = torch.distributed.all_gather(tensor_list=collected_values,
-                                                                tensor=flat_values,
-                                                                async_op=True)
+                values_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_values, tensor=flat_values, async_op=True
+                )
 
                 collected_positions = [torch.empty_like(flat_positions) for _ in range(self.n_workers)]
-                positions_gather_op = torch.distributed.all_gather(tensor_list=collected_positions,
-                                                                   tensor=flat_positions,
-                                                                   async_op=True)
+                positions_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_positions,
+                    tensor=flat_positions,
+                    async_op=True,
+                )
 
                 values_gather_op.wait()
                 positions_gather_op.wait()
@@ -1450,14 +1432,14 @@ class GlobalTopKReducer(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_values = [torch.empty_like(values) for _ in range(self.n_workers)]
-                values_gather_op = torch.distributed.all_gather(tensor_list=collected_values,
-                                                                tensor=values,
-                                                                async_op=True)
+                values_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_values, tensor=values, async_op=True
+                )
 
                 collected_positions = [torch.empty_like(positions) for _ in range(self.n_workers)]
-                positions_gather_op = torch.distributed.all_gather(tensor_list=collected_positions,
-                                                                   tensor=positions,
-                                                                   async_op=True)
+                positions_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_positions, tensor=positions, async_op=True
+                )
 
                 values_gather_op.wait()
                 positions_gather_op.wait()
@@ -1522,14 +1504,14 @@ class GlobalTopKReducerRatio(Reducer):
         with self._timer("reduce.gather", verbosity=2):
             if self.n_workers > 1:
                 collected_values = [torch.empty_like(values) for _ in range(self.n_workers)]
-                values_gather_op = torch.distributed.all_gather(tensor_list=collected_values,
-                                                                tensor=values,
-                                                                async_op=True)
+                values_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_values, tensor=values, async_op=True
+                )
 
                 collected_positions = [torch.empty_like(positions) for _ in range(self.n_workers)]
-                positions_gather_op = torch.distributed.all_gather(tensor_list=collected_positions,
-                                                                   tensor=positions,
-                                                                   async_op=True)
+                positions_gather_op = torch.distributed.all_gather(
+                    tensor_list=collected_positions, tensor=positions, async_op=True
+                )
 
                 values_gather_op.wait()
                 positions_gather_op.wait()
@@ -1572,8 +1554,11 @@ class QSGDMaxNormTwoScaleReducer(Reducer):
 
     def reduce(self, grad_in, grad_out):
         bits_communicated = 0
-        compressor = QSGDMaxNormTwoScaleCompressor(self._device, self._lower_quantization_level,
-                                                   self._higher_quantization_level)
+        compressor = QSGDMaxNormTwoScaleCompressor(
+            self._device,
+            self._lower_quantization_level,
+            self._higher_quantization_level,
+        )
 
         with self._timer("reduce.flat_pack"):
             flat_grad = TensorBuffer(grad_in)
@@ -1583,9 +1568,7 @@ class QSGDMaxNormTwoScaleReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -1593,27 +1576,26 @@ class QSGDMaxNormTwoScaleReducer(Reducer):
                 max_norm = norm
 
         with self._timer("reduce.compress", verbosity=2):
-            higher_resolution_mask = compressor.calculate_masks(max_norm, flat_grad.buffer)
+            sign_xi_array_lower = compressor.compress_lower(max_norm, flat_grad.buffer)
+            sign_xi_array_higher, higher_resolution_mask = compressor.compress_higher(max_norm, flat_grad.buffer)
 
             if self.n_workers > 1:
-                high_mask_op = torch.distributed.all_reduce(tensor=higher_resolution_mask,
-                                                            op=torch.distributed.ReduceOp.PRODUCT,
-                                                            async_op=True)
+                high_mask_op = torch.distributed.all_reduce(
+                    tensor=higher_resolution_mask,
+                    op=torch.distributed.ReduceOp.PRODUCT,
+                    async_op=True,
+                )
                 high_mask_op.wait()
-
             else:
                 higher_resolution_mask = higher_resolution_mask
 
-            sign_xi_array_lower = compressor.compress(max_norm, flat_grad.buffer, self._lower_quantization_level)
-            sign_xi_array_higher = compressor.compress(max_norm, flat_grad.buffer, self._higher_quantization_level)
-
-            sign_xi_array = higher_resolution_mask * sign_xi_array_higher + (
-                    1 - higher_resolution_mask) * sign_xi_array_lower
+            sign_xi_array = (
+                higher_resolution_mask * sign_xi_array_higher + (1 - higher_resolution_mask) * sign_xi_array_lower
+            )
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array,
-                                                                 async_op=True)
+                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array, async_op=True)
                 sign_xi_reduce_op.wait()
                 sign_xi_array.true_divide(self.n_workers)
             else:
@@ -1646,7 +1628,14 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
     All reduces two scale sign array * xi vector.
     """
 
-    def __init__(self, device, timer, K=10000, lower_quantization_level=6, higher_quantization_level=10):
+    def __init__(
+        self,
+        device,
+        timer,
+        K=10000,
+        lower_quantization_level=6,
+        higher_quantization_level=10,
+    ):
         super(GlobalRandKMaxNormTwoScaleReducer, self).__init__(device, timer)
         self._lower_quantization_level = lower_quantization_level
         self._higher_quantization_level = higher_quantization_level
@@ -1655,8 +1644,11 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
 
     def reduce(self, grad_in, grad_out):
         bits_communicated = 0
-        compressor = GlobalRandKMaxNormTwoScaleCompressor(self._device, self._lower_quantization_level,
-                                                          self._higher_quantization_level)
+        compressor = GlobalRandKMaxNormTwoScaleCompressor(
+            self._device,
+            self._lower_quantization_level,
+            self._higher_quantization_level,
+        )
 
         with self._timer("reduce.flat_pack"):
             flat_grad = TensorBuffer(grad_in)
@@ -1673,9 +1665,7 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
 
             if self.n_workers > 1:
                 collected_norms = [torch.empty_like(norm) for _ in range(self.n_workers)]
-                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms,
-                                                               tensor=norm,
-                                                               async_op=True)
+                norms_gather_op = torch.distributed.all_gather(tensor_list=collected_norms, tensor=norm, async_op=True)
 
                 norms_gather_op.wait()
                 max_norm = max(collected_norms)
@@ -1683,27 +1673,27 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
                 max_norm = norm
 
         with self._timer("reduce.compress", verbosity=2):
-            higher_resolution_mask = compressor.calculate_masks(max_norm, RandK_flat_grad)
+            sign_xi_array_lower = compressor.compress_lower(max_norm, RandK_flat_grad)
+            sign_xi_array_higher, higher_resolution_mask = compressor.compress_higher(max_norm, RandK_flat_grad)
 
             if self.n_workers > 1:
-                high_mask_op = torch.distributed.all_reduce(tensor=higher_resolution_mask,
-                                                            op=torch.distributed.ReduceOp.PRODUCT,
-                                                            async_op=True)
+                high_mask_op = torch.distributed.all_reduce(
+                    tensor=higher_resolution_mask,
+                    op=torch.distributed.ReduceOp.PRODUCT,
+                    async_op=True,
+                )
                 high_mask_op.wait()
 
             else:
                 higher_resolution_mask = higher_resolution_mask
 
-            sign_xi_array_lower = compressor.compress(max_norm, RandK_flat_grad, self._lower_quantization_level)
-            sign_xi_array_higher = compressor.compress(max_norm, RandK_flat_grad, self._higher_quantization_level)
-
-            sign_xi_array = higher_resolution_mask * sign_xi_array_higher + (
-                    1 - higher_resolution_mask) * sign_xi_array_lower
+            sign_xi_array = (
+                higher_resolution_mask * sign_xi_array_higher + (1 - higher_resolution_mask) * sign_xi_array_lower
+            )
 
         with self._timer("reduce.reduce.vector", verbosity=2):
             if self.n_workers > 1:
-                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array,
-                                                                 async_op=True)
+                sign_xi_reduce_op = torch.distributed.all_reduce(tensor=sign_xi_array, async_op=True)
                 sign_xi_reduce_op.wait()
                 sign_xi_array.true_divide(self.n_workers)
             else:

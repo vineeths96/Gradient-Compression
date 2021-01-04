@@ -13,9 +13,13 @@ packed = bytepacking.packing(src)
 print("Packed tensor ", packed)
 
 dst = bytepacking.unpacking(packed)
-dst = dst[:src.shape[0]]
+dst = dst[: src.shape[0]]
 print("Unpacked tensor", dst)
 print((src_copy == dst))
 
 print("Original Num Elements: {:5}, Packed Num Elements: {:5}".format(src.nelement(), packed.nelement()))
-print("Original Tensor Size: {:6}, Packed Tenor Size: {:7}".format(sys.getsizeof(src.storage()), sys.getsizeof(packed.storage())))
+print(
+    "Original Tensor Size: {:6}, Packed Tenor Size: {:7}".format(
+        sys.getsizeof(src.storage()), sys.getsizeof(packed.storage())
+    )
+)

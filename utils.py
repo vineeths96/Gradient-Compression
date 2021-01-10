@@ -675,12 +675,12 @@ def plot_waiting_times(log_path):
 if __name__ == "__main__":
     root_log_path = "./logs/plot_logs/"
 
-    # plot_loss_curves(os.path.join(root_log_path, "convergence"))
-    # plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
-    # plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
-    # plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
-    # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
-    # plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
+    plot_loss_curves(os.path.join(root_log_path, "convergence"))
+    plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
+    plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
+    plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
     plot_time_scalability(os.path.join(root_log_path, 'scalability'))
     plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
     plot_waiting_times(os.path.join(root_log_path, 'waiting_times'))

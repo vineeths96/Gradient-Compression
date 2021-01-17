@@ -627,7 +627,7 @@ def plot_throughput_scalability(log_path):
 
 def plot_waiting_times(log_path):
     models = {"ResNet50": 1, "VGG16": 2}
-    instances = ["P3 Waiting Time", "P3 Waiting Time Multi Node"]
+    instances = ["P3 Waiting Time"]#, "P3 Waiting Time Multi Node"]
 
     for instance in instances:
         Hs = os.listdir(os.path.join(log_path, instance))
@@ -731,7 +731,7 @@ def plot_waiting_times_AWS(log_path):
                                             plt.legend()
                                             plt.xlabel("Waiting Time")
                                             plt.ylabel("Probability")
-                                            plt.savefig(f"./plots/waiting_times_{model_name}_{H}_{instance}_{reducer}.png")
+                                            plt.savefig(f"./plots/waiting_times_{model_name}_{H}_{instance}_{GPU}_{reducer}.png")
                                     plt.show()
 
 
@@ -814,7 +814,7 @@ def plot_mean_variance_AWS(log_path, num_workers):
                 plt.legend()
                 plt.ylabel("Waiting Time")
                 plt.xlabel("H: Local steps")
-                plt.savefig(f"./plots/mean_waiting_time_{model_name}_{num_workers} GPU_{instance}_{reducer}.png")
+                plt.savefig(f"./plots/mean_waiting_time_{model}_{num_workers} GPU_{instance}_{reducer}.png")
                 plt.show()
 
                 plt.figure()
@@ -824,7 +824,7 @@ def plot_mean_variance_AWS(log_path, num_workers):
                 plt.legend()
                 plt.ylabel("Waiting Time")
                 plt.xlabel("H: Local steps")
-                plt.savefig(f"./plots/var_waiting_times_{model_name}_{num_workers} GPU_{instance}_{reducer}.png")
+                plt.savefig(f"./plots/var_waiting_times_{model}_{num_workers} GPU_{instance}_{reducer}.png")
                 plt.show()
 
 

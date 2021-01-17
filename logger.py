@@ -9,8 +9,11 @@ class Logger:
     Logs information and model statistics
     """
 
-    def __init__(self, log_path, config):
-        os.makedirs(log_path)
+    def __init__(self, log_path, config, local_rank):
+        if local_rank == 0:
+            os.makedirs(log_path, exist_ok=True)
+
+        self._local_rank = local_rank
         self._log_path = log_path
         self._config = config
         self._start = datetime.datetime.now()
@@ -48,16 +51,17 @@ class Logger:
         self._log_dict["time"][epoch] = (datetime.datetime.now() - self._start).total_seconds()
 
     def summary_writer(self, model, timer, bits_communicated):
-        timer.save_summary(f"{self._log_path}/timer_summary.json")
+        timer.save_summary(f"{self._log_path}/timer_summary_{self._local_rank}.json")
 
-        with open(f"{self._log_path}/success.txt", "w") as file:
-            file.write(f"Training completed at {datetime.datetime.now()}\n\n")
+        if self._local_rank == 0:
+            with open(f"{self._log_path}/success.txt", "w") as file:
+                file.write(f"Training completed at {datetime.datetime.now()}\n\n")
 
-            file.write(f"Training parameters\n")
-            list_of_strings = [f"{key} : {value}" for key, value in self._config.items()]
-            [file.write(f"{string}\n") for string in list_of_strings]
+                file.write(f"Training parameters\n")
+                list_of_strings = [f"{key} : {value}" for key, value in self._config.items()]
+                [file.write(f"{string}\n") for string in list_of_strings]
 
-            file.write(f"Bits communicated: {bits_communicated}")
+                file.write(f"Bits communicated: {bits_communicated}")
 
-        np.save(f"{self._log_path}/log_dict.npy", self._log_dict)
-        torch.save(model.state_dict(), f"{self._log_path}/model.pt")
+            np.save(f"{self._log_path}/log_dict.npy", self._log_dict)
+            torch.save(model.state_dict(), f"{self._log_path}/model.pt")

@@ -40,9 +40,9 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=150,
+    num_epochs=1,
     batch_size=128,
-    architecture="ResNet50",
+    architecture="VGG16",
     local_steps=1,
     # K=10000,
     # compression=1/1000,
@@ -69,8 +69,7 @@ def initiate_distributed():
 
 
 def train(local_rank, log_path):
-    if local_rank == 0:
-        logger = Logger(log_path, config)
+    logger = Logger(log_path, config, local_rank)
 
     # torch.manual_seed(config["seed"] + local_rank)
     # np.random.seed(config["seed"] + local_rank)
@@ -202,7 +201,8 @@ def train(local_rank, log_path):
 
     if local_rank == 0:
         print(timer.summary())
-        logger.summary_writer(model, timer, bits_communicated)
+
+    logger.summary_writer(model, timer, bits_communicated)
 
 
 if __name__ == "__main__":

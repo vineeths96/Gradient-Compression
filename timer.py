@@ -25,6 +25,8 @@ class Timer:
         self.skip_first = skip_first
         self.cuda_available = torch.cuda.is_available() and on_cuda
 
+        self.reduce_times = []
+
         self.reset()
 
     def reset(self):
@@ -47,6 +49,9 @@ class Timer:
         yield
         self._cuda_sync()
         end = time.time()
+
+        if label == 'batch.reduce':
+            self.reduce_times.append(end-start)
 
         # Update first and last occurrence of this label
         if label not in self.first_time:
@@ -131,6 +136,8 @@ class Timer:
                 "n_events": count,
                 "total_time": total,
             }
+
+        data["reduce_times"] = self.reduce_times
 
         with open(json_file_path, "w") as fp:
             json.dump(data, fp)

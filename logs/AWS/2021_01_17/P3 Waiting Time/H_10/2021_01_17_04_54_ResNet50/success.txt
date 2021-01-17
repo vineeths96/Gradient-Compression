@@ -1,0 +1,13 @@
+Training completed at 2021-01-17 04:55:20.783626
+
+Training parameters
+distributed_backend : nccl
+num_epochs : 2
+batch_size : 128
+architecture : ResNet50
+local_steps : 10
+reducer : NoneAllReducer
+seed : 42
+log_verbosity : 2
+lr : 0.01
+Bits communicated: 14300671936

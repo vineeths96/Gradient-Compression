@@ -627,18 +627,18 @@ def plot_throughput_scalability(log_path):
 
 def plot_waiting_times(log_path):
     models = {"ResNet50": 1, "VGG16": 2}
-    instances = ["P3 Waiting Time", "P3 Waiting Time Multi Node"]
+    instances = ["P3 Waiting Time"]#, "P3 Waiting Time Multi Node"]
 
     for instance in instances:
-        Ls = os.listdir(os.path.join(log_path, instance))
+        Hs = os.listdir(os.path.join(log_path, instance))
 
-        for L in Ls:
-            GPUs = os.listdir(os.path.join(log_path, instance, L))
+        for H in Hs:
+            GPUs = os.listdir(os.path.join(log_path, instance, H))
             GPUs.sort()
 
             [plt.figure(ind) for _, ind in models.items()]
             for GPU in GPUs:
-                files = glob.glob(f'{log_path}/{instance}/{L}/{GPU}/*.pkl')
+                files = glob.glob(f'{log_path}/{instance}/{H}/{GPU}/*.pkl')
 
                 for file in files:
                     model_name = file.split('_')[-1].split('.')[0]
@@ -659,17 +659,173 @@ def plot_waiting_times(log_path):
                     # density.covariance_factor = lambda: .25
                     # density._compute_covariance()
                     plt.plot(xs, density(xs), label=GPU)
-                    plt.title(f'{model_name}_{instance}_{L}')
+                    plt.title(f'{model_name}_{instance}_{H}')
 
                     plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
                     plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
                     plt.legend()
+                    plt.xlabel("Waiting Time")
+                    plt.ylabel("Probability")
                     plt.grid()
-                    plt.savefig(f"./plots/waiting_times_{model_name}_{L}_{instance}.png")
+                    plt.savefig(f"./plots/waiting_times_{model_name}_{H}_{instance}.png")
                     plt.grid()
 
             plt.show()
+
+
+def plot_waiting_times_AWS(log_path):
+    models = {"ResNet50": 1, "VGG16": 2}
+    instances = ["P3 Waiting Time"]#, "P3 Waiting Time Multi Node"]
+
+    for instance in instances:
+        Hs = os.listdir(os.path.join(log_path, instance))
+        Hs.sort()
+
+        for reducer in ['NoneAllReducer', 'QSGDMaxNormReducer', 'GlobalRandKMaxNormReducer', 'QSGDMaxNormTwoScaleReducer', 'GlobalRandKMaxNormTwoScaleReducer']:
+            for H in Hs:
+                GPUs = os.listdir(os.path.join(log_path, instance, H))
+                GPUs.sort()
+
+                [plt.figure(ind) for _, ind in models.items()]
+                for GPU in GPUs:
+                    experiments = glob.glob(f'{log_path}/{instance}/{H}/{GPU}/*')
+                    experiments.sort()
+
+                    for experiment in experiments:
+                        with open(f'{experiment}/success.txt', 'r') as success_file:
+                            for line in success_file:
+                                if line.startswith("reducer"):
+                                    compressor = line.split(':')[-1].strip()
+
+                                    if compressor == reducer:
+                                        model_name = experiment.split('_')[-1].split('.')[0]
+                                        plt.figure(models[model_name])
+
+                                        files = glob.glob(f'{experiment}/*.pkl')
+                                        files.sort()
+
+                                        for file in files:
+                                            worker_num = file.split('_')[-1].split('.')[0]
+
+                                            with open(file, 'rb') as file:
+                                                waiting_time = pickle.load(file)
+
+                                            from scipy.stats import gaussian_kde
+                                            data = waiting_time[1:]
+                                            density = gaussian_kde(data)
+
+                                            if "Multi Node" in instance:
+                                                xs = np.linspace(0, 2e-4, 200)
+                                            else:
+                                                xs = np.linspace(0, 5e-5, 200)
+
+                                            # density.covariance_factor = lambda: .25
+                                            # density._compute_covariance()
+                                            plt.plot(xs, density(xs), label=f'{compressor} - {worker_num}')
+                                            plt.title(f'{model_name}_{instance}_{GPU}_{H}')
+
+                                            plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
+                                            plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+                                            plt.legend()
+                                            plt.xlabel("Waiting Time")
+                                            plt.ylabel("Probability")
+                                            plt.savefig(f"./plots/waiting_times_{model_name}_{H}_{instance}_{GPU}_{reducer}.png")
+                                    plt.show()
+
+
+def plot_mean_variance_AWS(log_path, num_workers):
+    models = {"ResNet50": 1, "VGG16": 2}
+    instances = ["P3 Waiting Time"]#, "P3 Waiting Time Multi Node"]
+
+    for instance in instances:
+        Hs = os.listdir(os.path.join(log_path, instance))
+        Hs.sort()
+
+        for reducer in ['NoneAllReducer', 'QSGDMaxNormReducer', 'GlobalRandKMaxNormReducer', 'QSGDMaxNormTwoScaleReducer', 'GlobalRandKMaxNormTwoScaleReducer']:
+            mean = {model: [] for model in models}
+            variance = {model: [] for model in models}
+
+            mean_MC = {model: [] for model in models}
+            variance_MC = {model: [] for model in models}
+
+            steps = []
+            [plt.figure(ind) for _, ind in models.items()]
+            for H in Hs:
+                steps.append(int(H.split('_')[-1]))
+                GPUs = os.listdir(os.path.join(log_path, instance, H))
+                GPUs.sort()
+
+                [plt.figure(ind) for _, ind in models.items()]
+                for GPU in GPUs:
+                    if GPU != f'{num_workers} GPU':
+                        print(f"Skip {GPU}")
+                        continue
+
+                    experiments = glob.glob(f'{log_path}/{instance}/{H}/{GPU}/*')
+                    experiments.sort()
+
+                    for experiment in experiments:
+                        with open(f'{experiment}/success.txt', 'r') as success_file:
+                            for line in success_file:
+                                if line.startswith("reducer"):
+                                    compressor = line.split(':')[-1].strip()
+
+                                    if compressor == reducer:
+                                        model_name = experiment.split('_')[-1].split('.')[0]
+                                        plt.figure(models[model_name])
+
+                                        files = glob.glob(f'{experiment}/*.pkl')
+                                        files.sort()
+
+                                        worker_mean = []
+                                        worker_variance = []
+
+                                        for file in files:
+                                            worker_num = file.split('_')[-1].split('.')[0]
+
+                                            with open(file, 'rb') as file:
+                                                waiting_time = pickle.load(file)
+
+                                            from scipy.stats import gaussian_kde
+                                            data = waiting_time[1:]
+                                            worker_mean.append(np.mean(data))
+                                            worker_variance.append(np.var(data))
+
+                                            n_samples = 1000000
+                                            density = gaussian_kde(data)
+                                            samples = density.resample(n_samples)
+
+                                            worker_mean_mc = samples.mean()
+                                            worker_variance_mc = samples.var()
+
+                                        mean[model_name].append(np.mean(worker_mean))
+                                        variance[model_name].append(np.mean(worker_variance))
+
+                                        mean_MC[model_name].append(np.mean(worker_mean_mc))
+                                        variance_MC[model_name].append(np.mean(worker_variance_mc))
+
+            for model in models:
+                plt.figure()
+                plt.plot(steps, mean[model], label='Empirical')
+                plt.plot(steps, mean_MC[model], label='Monte Carlo')
+                plt.title(f'Mean_WT_{model}_{reducer}')
+                plt.legend()
+                plt.ylabel("Waiting Time")
+                plt.xlabel("H: Local steps")
+                plt.savefig(f"./plots/mean_waiting_time_{model}_{num_workers} GPU_{instance}_{reducer}.png")
+                plt.show()
+
+                plt.figure()
+                plt.plot(steps, variance[model], label='Empirical')
+                plt.plot(steps, variance_MC[model], label='Monte Carlo')
+                plt.title(f'Variance_WT_{model}_{reducer}')
+                plt.legend()
+                plt.ylabel("Waiting Time")
+                plt.xlabel("H: Local steps")
+                plt.savefig(f"./plots/var_waiting_times_{model}_{num_workers} GPU_{instance}_{reducer}.png")
+                plt.show()
 
 
 if __name__ == "__main__":
@@ -681,6 +837,8 @@ if __name__ == "__main__":
     # plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
     # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
     # plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
-    plot_time_scalability(os.path.join(root_log_path, 'scalability'))
-    plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
-    plot_waiting_times(os.path.join(root_log_path, 'waiting_times'))
+    # plot_time_scalability(os.path.join(root_log_path, 'scalability'))
+    # plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
+    # plot_waiting_times(os.path.join(root_log_path, 'waiting_times'))
+    # plot_waiting_times_AWS(os.path.join(root_log_path, 'waiting_times'))
+    plot_mean_variance_AWS(os.path.join(root_log_path, 'waiting_times'), 4)

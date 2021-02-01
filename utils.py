@@ -955,6 +955,101 @@ def plot_heterogenous_AWS(log_path):
                                     plt.show()
 
 
+def plot_mean_variance_reduce_time_AWS(log_path, num_workers):
+    models = {"ResNet50": 1, "VGG16": 2}
+    instances = ["P3 Waiting Time"]#, "P3 Waiting Time Multi Node"]
+
+    for instance in instances:
+        Hs = os.listdir(os.path.join(log_path, instance))
+        Hs.sort()
+
+        for reducer in ['NoneAllReducer', 'QSGDMaxNormReducer', 'GlobalRandKMaxNormReducer', 'QSGDMaxNormTwoScaleReducer', 'GlobalRandKMaxNormTwoScaleReducer']:
+            mean = {model: [] for model in models}
+            variance = {model: [] for model in models}
+
+            mean_MC = {model: [] for model in models}
+            variance_MC = {model: [] for model in models}
+
+            steps = []
+            [plt.figure(ind) for _, ind in models.items()]
+            for H in Hs:
+                steps.append(int(H.split('_')[-1]))
+                GPUs = os.listdir(os.path.join(log_path, instance, H))
+                GPUs.sort()
+
+                [plt.figure(ind) for _, ind in models.items()]
+                for GPU in GPUs:
+                    if GPU != f'{num_workers} GPU':
+                        print(f"Skip {GPU}")
+                        continue
+
+                    experiments = glob.glob(f'{log_path}/{instance}/{H}/{GPU}/*')
+                    experiments.sort()
+
+                    for experiment in experiments:
+                        with open(f'{experiment}/success.txt', 'r') as success_file:
+                            for line in success_file:
+                                if line.startswith("reducer"):
+                                    compressor = line.split(':')[-1].strip()
+
+                                    if compressor == reducer:
+                                        model_name = experiment.split('_')[-1].split('.')[0]
+                                        plt.figure(models[model_name])
+
+                                        files = glob.glob(f'{experiment}/*.json')
+                                        files.sort()
+
+                                        worker_mean = []
+                                        worker_variance = []
+
+                                        for file in files:
+                                            worker_num = file.split('_')[-1].split('.')[0]
+
+                                            with open(file) as jsonfile:
+                                                json_data = json.load(jsonfile)
+
+                                            waiting_time = json_data['reduce_times']
+
+                                            from scipy.stats import gaussian_kde
+                                            data = waiting_time[1:]
+                                            worker_mean.append(np.mean(data))
+                                            worker_variance.append(np.var(data))
+
+                                            n_samples = 1000000
+                                            density = gaussian_kde(data)
+                                            samples = density.resample(n_samples)
+
+                                            worker_mean_mc = samples.mean()
+                                            worker_variance_mc = samples.var()
+
+                                        mean[model_name].append(np.mean(worker_mean))
+                                        variance[model_name].append(np.mean(worker_variance))
+
+                                        mean_MC[model_name].append(np.mean(worker_mean_mc))
+                                        variance_MC[model_name].append(np.mean(worker_variance_mc))
+
+            for model in models:
+                plt.figure()
+                plt.plot(steps, mean[model], label='Empirical')
+                plt.plot(steps, mean_MC[model], label='Monte Carlo')
+                plt.title(f'Mean_WT_{model}_{reducer}')
+                plt.legend()
+                plt.ylabel("Reduce Time")
+                plt.xlabel("H: Local steps")
+                plt.savefig(f"./plots/mean_reduce_time_{model}_{num_workers} GPU_{instance}_{reducer}.png")
+                plt.show()
+
+                plt.figure()
+                plt.plot(steps, variance[model], label='Empirical')
+                plt.plot(steps, variance_MC[model], label='Monte Carlo')
+                plt.title(f'Variance_WT_{model}_{reducer}')
+                plt.legend()
+                plt.ylabel("Reduce Time")
+                plt.xlabel("H: Local steps")
+                plt.savefig(f"./plots/var_reduce_times_{model}_{num_workers} GPU_{instance}_{reducer}.png")
+                plt.show()
+
+
 if __name__ == "__main__":
     root_log_path = "./logs/plot_logs/"
 
@@ -969,6 +1064,6 @@ if __name__ == "__main__":
     # plot_waiting_times(os.path.join(root_log_path, 'waiting_times'))
     # plot_waiting_times_AWS(os.path.join(root_log_path, 'waiting_times'))
     # plot_mean_variance_AWS(os.path.join(root_log_path, 'waiting_times'), 4)
-    plot_reduce_times_AWS(os.path.join(root_log_path, 'waiting_times'))
+    # plot_reduce_times_AWS(os.path.join(root_log_path, 'waiting_times'))
     # plot_heterogenous_AWS(os.path.join(root_log_path, 'heterogenous'))
-
+    plot_mean_variance_reduce_time_AWS(os.path.join(root_log_path, 'waiting_times'), 4)

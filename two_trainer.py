@@ -42,6 +42,7 @@ config = dict(
     distributed_backend="nccl",
     num_epochs=1,
     batch_size=128,
+    auxiliary_batch_size=32,
     architecture="ResNet50",
     # architecture="VGG16",
     local_steps=1,
@@ -155,12 +156,19 @@ def train(local_rank, log_path):
 
         epoch_metrics = AverageMeter(device)
 
+        auxiliary_train_loader = model.auxilary_train_dataloader(config["auxiliary_batch_size"])
         train_loader = model.train_dataloader(config["batch_size"])
+
         for i, batch in enumerate(train_loader):
             global_iteration_count += 1
             epoch_frac = epoch + i / model.len_train_loader
 
             with timer("batch", epoch_frac):
+                auxiliary_batch = next(auxiliary_train_loader)
+
+                _, grads, metrics = model.batch_loss_with_gradients(auxiliary_batch)
+                optimizer.step()
+
                 _, grads, metrics = model.batch_loss_with_gradients(batch)
                 epoch_metrics.add(metrics)
 

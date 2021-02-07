@@ -1036,7 +1036,7 @@ def plot_mean_variance_reduce_time_AWS(log_path, num_workers):
                 plt.legend()
                 plt.ylabel("Reduce Time")
                 plt.xlabel("H: Local steps")
-                plt.savefig(f"./plots/mean_reduce_time_{model}_{num_workers} GPU_{instance}_{reducer}.png")
+                plt.savefig(f"./plots/mean_reduce_times_{model}_{num_workers} GPU_{instance}_{reducer}.png")
                 plt.show()
 
                 plt.figure()

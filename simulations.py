@@ -52,7 +52,9 @@ def plot_waiting_times(process_time):
         com_time = torch.distributions.normal.Normal(torch.tensor([2e-5]), torch.tensor([1e-6])).sample()
 
         for worker in range(process_time.size(1)):
-            waiting_time[iteration, worker] = process_time[iteration, :].max() - process_time[iteration, worker]# + com_time
+            waiting_time[iteration, worker] = (
+                process_time[iteration, :].max() - process_time[iteration, worker]
+            )  # + com_time
 
     print(waiting_time)
 
@@ -64,7 +66,7 @@ def plot_waiting_times(process_time):
 
         # density.covariance_factor = lambda: 0.25
         # density._compute_covariance()
-        plt.plot(xs, density(xs), label=f'{ind}')
+        plt.plot(xs, density(xs), label=f"{ind}")
 
         plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
         plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
@@ -82,7 +84,10 @@ def simulate_waiting_times(num_workers, num_iterations):
     # mean_distribution = torch.distributions.uniform.Uniform(torch.tensor([-5e-3]), torch.tensor([5e-3]))
     lambda_distribution = torch.distributions.uniform.Uniform(torch.tensor([-5e2]), torch.tensor([5e2]))
 
-    X_distributions = [torch.distributions.exponential.Exponential(torch.Tensor([1e5 + lambda_distribution.sample()])) for ind in range(num_workers)]
+    X_distributions = [
+        torch.distributions.exponential.Exponential(torch.Tensor([1e5 + lambda_distribution.sample()]))
+        for ind in range(num_workers)
+    ]
     # X_distributions = [torch.distributions.normal.Normal(torch.tensor([2e-4 + mean_distribution.sample()]), torch.tensor([1e-5])) for ind in range(num_workers)]
     # X_distributions = [torch.distributions.normal.Normal(torch.tensor([2e-4 + ind * mean_distribution.sample()]), torch.tensor([1e-5])) for ind in range(num_workers)]
 
@@ -97,4 +102,3 @@ def simulate_waiting_times(num_workers, num_iterations):
 
 
 simulate_waiting_times(4, 30)
-

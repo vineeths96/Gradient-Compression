@@ -1,5 +1,6 @@
 import torch
 import struct
+
 # import bitpacking
 # import gpu_bitpacking
 import numpy as np

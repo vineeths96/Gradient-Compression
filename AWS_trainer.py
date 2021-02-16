@@ -43,7 +43,7 @@ def initiate_distributed():
     env_dict = {key: os.environ[key] for key in ("MASTER_ADDR", "MASTER_PORT", "RANK", "WORLD_SIZE")}
 
     print(f"[{os.getpid()}] Initializing Process Group with: {env_dict}")
-    dist.init_process_group(backend='nccl', init_method="env://")
+    dist.init_process_group(backend="nccl", init_method="env://")
 
     print(
         f"[{os.getpid()}] Initialized Process Group with: RANK = {dist.get_rank()}, "
@@ -56,9 +56,16 @@ def train(local_rank):
     local_step_epoch = {"H_1": 1, "H_5": 1, "H_10": 2, "H_15": 3, "H_20": 4}
 
     for local_step in local_step_epoch.keys():
-        for model_name in ['ResNet50', 'VGG16']:
-            for reducer in ['NoneAllReducer', 'QSGDMaxNormReducer', 'GlobalRandKMaxNormReducer', 'QSGDMaxNormTwoScaleReducer', 'GlobalRandKMaxNormTwoScaleReducer']:
+        for model_name in ["ResNet50", "VGG16"]:
+            for reducer in [
+                "NoneAllReducer",
+                "QSGDMaxNormReducer",
+                "GlobalRandKMaxNormReducer",
+                "QSGDMaxNormTwoScaleReducer",
+                "GlobalRandKMaxNormTwoScaleReducer",
+            ]:
                 import time
+
                 time.sleep(75)
 
                 config = dict(
@@ -66,7 +73,7 @@ def train(local_rank):
                     num_epochs=local_step_epoch[local_step],
                     batch_size=128,
                     architecture=model_name,
-                    local_steps=int(local_step.split('_')[-1]),
+                    local_steps=int(local_step.split("_")[-1]),
                     reducer=reducer,
                     seed=42,
                     log_verbosity=2,
@@ -107,15 +114,16 @@ def train(local_rank):
                     "NUQSGDMaxNormBiasedMemoryReducer",
                     "QSGDMaxNormMaskReducer",
                 ]:
-                    config['quantization_level'] = 6
-                    reducer = globals()[config["reducer"]](device, timer,
-                                                           quantization_level=config["quantization_level"])
+                    config["quantization_level"] = 6
+                    reducer = globals()[config["reducer"]](
+                        device, timer, quantization_level=config["quantization_level"]
+                    )
                 elif config["reducer"] in [
                     "GlobalRandKMaxNormReducer",
                     "MaxNormGlobalRandKReducer",
                 ]:
-                    config['K'] = 10000
-                    config['quantization_level'] = 6
+                    config["K"] = 10000
+                    config["quantization_level"] = 6
                     reducer = globals()[config["reducer"]](
                         device,
                         timer,
@@ -123,14 +131,14 @@ def train(local_rank):
                         quantization_level=config["quantization_level"],
                     )
                 elif config["reducer"] in ["TopKReducer", "GlobalTopKReducer"]:
-                    config['K'] = 10000
+                    config["K"] = 10000
                     reducer = globals()[config["reducer"]](device, timer, K=config["K"])
                 elif config["reducer"] in ["TopKReducerRatio", "GlobalTopKReducerRatio"]:
                     config["compression"] = 0.001
                     reducer = globals()[config["reducer"]](device, timer, compression=config["compression"])
                 elif config["reducer"] in ["QSGDMaxNormTwoScaleReducer"]:
-                    config['quantization_level'] = 6
-                    config['higher_quantization_level'] = 10
+                    config["quantization_level"] = 6
+                    config["higher_quantization_level"] = 10
                     reducer = globals()[config["reducer"]](
                         device,
                         timer,
@@ -138,9 +146,9 @@ def train(local_rank):
                         higher_quantization_level=config["higher_quantization_level"],
                     )
                 elif config["reducer"] in ["GlobalRandKMaxNormTwoScaleReducer"]:
-                    config['K'] = 10000
-                    config['quantization_level'] = 6
-                    config['higher_quantization_level'] = 10
+                    config["K"] = 10000
+                    config["quantization_level"] = 6
+                    config["higher_quantization_level"] = 10
                     reducer = globals()[config["reducer"]](
                         device,
                         timer,

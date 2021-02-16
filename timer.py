@@ -50,8 +50,8 @@ class Timer:
         self._cuda_sync()
         end = time.time()
 
-        if label == 'batch.reduce':
-            self.reduce_times.append(end-start)
+        if label == "batch.reduce":
+            self.reduce_times.append(end - start)
 
         # Update first and last occurrence of this label
         if label not in self.first_time:

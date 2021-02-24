@@ -920,7 +920,10 @@ def plot_reduce_times_AWS(log_path):
 
 def plot_heterogenous_AWS(log_path):
     models = {"ResNet50": 1, "VGG16": 2}
-    dynamic_batches = ["NAR", "NAR_128+8_128"] #, "NAR_128+16_128", "NAR_128+32_128", "NAR_128+64_128", "NAR_128+128_128"]
+    dynamic_batches = [
+        "NAR",
+        "NAR_128+8_128",
+    ]  # , "NAR_128+16_128", "NAR_128+32_128", "NAR_128+64_128", "NAR_128+128_128"]
 
     for dynamic_batch in dynamic_batches:
         instances = os.listdir(os.path.join(log_path, dynamic_batch))
@@ -1320,7 +1323,7 @@ if __name__ == "__main__":
     # plot_waiting_times_AWS(os.path.join(root_log_path, 'waiting_times'))
     # plot_mean_variance_AWS(os.path.join(root_log_path, 'waiting_times'), 4)
     # plot_reduce_times_AWS(os.path.join(root_log_path, 'waiting_times'))
-    plot_heterogenous_AWS(os.path.join(root_log_path, 'heterogenous'))
+    plot_heterogenous_AWS(os.path.join(root_log_path, "heterogenous"))
     # plot_histogram_heterogenous_AWS(os.path.join(root_log_path, 'heterogenous'))
     # plot_mean_variance_reduce_time_AWS(os.path.join(root_log_path, 'waiting_times'), 4)
     # plot_performance_modelling(os.path.join(root_log_path, "scalability"))

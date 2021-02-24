@@ -1740,7 +1740,10 @@ class QSGDMaxNormMultiScaleReducer(Reducer):
 
     def reduce(self, grad_in, grad_out):
         bits_communicated = 0
-        compressor = QSGDMaxNormMultiScaleCompressor(self._device, self._quantization_levels,)
+        compressor = QSGDMaxNormMultiScaleCompressor(
+            self._device,
+            self._quantization_levels,
+        )
 
         with self._timer("reduce.flat_pack"):
             flat_grad = TensorBuffer(grad_in)
@@ -1800,4 +1803,3 @@ class QSGDMaxNormMultiScaleReducer(Reducer):
 
     def n_bits(self, tensor):
         return 8 * tensor.nelement() * tensor.element_size()
-

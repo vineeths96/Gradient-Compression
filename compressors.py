@@ -787,8 +787,6 @@ class GlobalRandKMaxNormTwoScaleCompressor:
         return decompressed_tensor
 
 
-
-
 class QSGDMaxNormMultiScaleCompressor:
     """
     QSGD MaxNorm Compressor with Multi scale compression.
@@ -815,7 +813,9 @@ class QSGDMaxNormMultiScaleCompressor:
 
     def compress_cache(self, norm, tensor):
         if not self._cache:
-            self._cache = torch.zeros(len(self._quantization_levels), tensor.size(0), dtype=self._dtype, device=self._device)
+            self._cache = torch.zeros(
+                len(self._quantization_levels), tensor.size(0), dtype=self._dtype, device=self._device
+            )
 
         for ind, quantization_level in enumerate(self._quantization_levels):
             s = (1 << quantization_level) - 1

@@ -41,9 +41,9 @@ from metrics import AverageMeter
 config = dict(
     distributed_backend="nccl",
     num_epochs=1,
-    batch_size=128,
-    architecture="ResNet50",
-    # architecture="VGG16",
+    batch_size=32,
+    # architecture="ResNet50",
+    architecture="VGG16",
     local_steps=1,
     # K=10000,
     # compression=1/1000,

@@ -41,7 +41,7 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=150,
+    num_epochs=1,
     batch_size=128,
     architecture="ResNet50",
     # architecture="VGG16",
@@ -50,8 +50,9 @@ config = dict(
     # compression=1/1000,
     # quantization_level=6,
     # higher_quantization_level=10,
-    # quantization_levels=[6, 8, 10],
-    reducer="NoneAllReducer",
+    quantization_levels=[6, 10, 16],
+    # reducer="NoneAllReducer",
+    reducer="QSGDMaxNormMultiScaleReducer",
     seed=42,
     log_verbosity=2,
     lr=0.01,

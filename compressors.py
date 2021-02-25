@@ -718,7 +718,7 @@ class QSGDMaxNormTwoScaleCompressor:
 
 class GlobalRandKMaxNormTwoScaleCompressor:
     """
-    QSGD MaxNorm Compressor with two scale compression.
+    Global RandK MaxNorm Compressor with two scale compression.
     Normalizing with max norm among thw workers.
     Calculates common low resolution masks, and returns two scale vector
     Code: sign array * xi array.
@@ -804,7 +804,7 @@ class QSGDMaxNormMultiScaleCompressor:
         quantization_levels.sort()
         self._quantization_levels = quantization_levels
 
-        if quantization_levels[-1] < 8:
+        if quantization_levels[0] < 8:
             self._dtype = torch.int8
         else:
             self._dtype = torch.int32
@@ -813,9 +813,7 @@ class QSGDMaxNormMultiScaleCompressor:
 
     def compress_cache(self, norm, tensor):
         if not self._cache:
-            self._cache = torch.zeros(
-                len(self._quantization_levels), tensor.size(0), dtype=self._dtype, device=self._device
-            )
+            self._cache = torch.zeros(len(self._quantization_levels), tensor.size(0), device=self._device)
 
         for ind, quantization_level in enumerate(self._quantization_levels):
             s = (1 << quantization_level) - 1
@@ -831,25 +829,27 @@ class QSGDMaxNormMultiScaleCompressor:
             xi_array = l_array_floored + mask
             xi_array = xi_array.to(dtype=torch.int32)
 
-            sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
+            sign_xi_array = sign_array * xi_array#).to(device=self._device)
             self._cache[ind] = sign_xi_array
 
     def compress_mask(self, norm, tensor):
         # TODO: Magic number 8
-        MAX_VAL = 2 ** (8 - 1)
+        MAX_VAL = 2 ** (7 - 1) - 1
         self.compress_cache(norm, tensor)
 
         resolution_mask = torch.zeros_like(tensor, dtype=torch.int8)
         for ind in range(len(self._quantization_levels)):
-            resolution_mask[self._cache[ind].abs() < MAX_VAL] = ind
+            resolution_mask[self._cache[ind].abs() <= MAX_VAL] = ind
 
         return resolution_mask
 
     def compress(self, resolution_mask):
-        sign_xi_array = torch.zeros_like(resolution_mask, dtype=self._dtype)
+        sign_xi_array = torch.zeros_like(resolution_mask, dtype=torch.float32)
 
         for ind in range(len(self._quantization_levels)):
-            sign_xi_array[resolution_mask == ind] = self._cache[ind][resolution_mask == ind]
+            sign_xi_array[resolution_mask == ind] = (self._cache[ind][resolution_mask == ind])
+
+        sign_xi_array = sign_xi_array.to(dtype=self._dtype, device=self._device)
 
         return sign_xi_array
 

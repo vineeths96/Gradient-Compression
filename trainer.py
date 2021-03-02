@@ -33,6 +33,7 @@ from reducer import (
     NUQSGDMaxNormBiasedMemoryReducer,
     QSGDMaxNormTwoScaleReducer,
     GlobalRandKMaxNormTwoScaleReducer,
+    QSGDMaxNormMultiScaleReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -49,7 +50,9 @@ config = dict(
     # compression=1/1000,
     # quantization_level=6,
     # higher_quantization_level=10,
-    reducer="NoneAllReducer",
+    quantization_levels=[6, 10, 16],
+    # reducer="NoneAllReducer",
+    reducer="QSGDMaxNormMultiScaleReducer",
     seed=42,
     log_verbosity=2,
     lr=0.01,
@@ -131,6 +134,12 @@ def train(local_rank, log_path):
             lower_quantization_level=config["quantization_level"],
             higher_quantization_level=config["higher_quantization_level"],
         )
+    elif config["reducer"] in ["QSGDMaxNormMultiScaleReducer"]:
+        reducer = globals()[config["reducer"]](
+            device,
+            timer,
+            quantization_levels=config["quantization_levels"],
+    )
     else:
         raise NotImplementedError("Reducer method not implemented")
 

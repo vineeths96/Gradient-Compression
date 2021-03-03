@@ -52,7 +52,6 @@ config = dict(
     # higher_quantization_level=10,
     # quantization_levels=[6, 10, 16],
     reducer="NoneAllReducer",
-    # reducer="QSGDMaxNormMultiScaleReducer",
     seed=42,
     log_verbosity=2,
     lr=0.1,
@@ -139,7 +138,7 @@ def train(local_rank, log_path):
             device,
             timer,
             quantization_levels=config["quantization_levels"],
-    )
+        )
     else:
         raise NotImplementedError("Reducer method not implemented")
 

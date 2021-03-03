@@ -160,6 +160,23 @@ class CIFAR:
 
         return loss.detach(), grad_vec, metrics
 
+    def auxiliary_batch_loss_with_gradients(self, batch):
+        imgs, labels = batch
+
+        with self._timer("batch.auxiliary.forward", float(self._epoch)):
+            prediction = self._model(imgs)
+            loss = self._criterion(prediction, labels)
+
+        with self._timer("batch.auxiliary.backward", float(self._epoch)):
+            loss.backward()
+
+        with self._timer("batch.auxiliary.evaluate", float(self._epoch)):
+            metrics = self.evaluate_predictions(prediction, labels)
+
+        grad_vec = [parameter.grad for parameter in self._model.parameters()]
+
+        return loss.detach(), grad_vec, metrics
+
     def evaluate_predictions(self, pred_labels, true_labels):
         def accuracy(output, target, topk=(1,)):
             maxk = max(topk)

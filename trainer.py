@@ -145,6 +145,7 @@ def train(local_rank, log_path):
 
     lr = config["lr"]
     bits_communicated = 0
+    best_accuracy = {"top1": 0, "top5": 0}
 
     global_iteration_count = 0
     model = CIFAR(device, timer, config["architecture"], config["seed"] + local_rank)
@@ -209,13 +210,20 @@ def train(local_rank, log_path):
                         tags={"split": "test"},
                     )
 
+                    if "top1_accuracy" == key and value > best_accuracy['top1']:
+                        best_accuracy['top1'] = value
+                        logger.save_model(model)
+
+                    if "top5_accuracy" == key and value > best_accuracy['top5']:
+                        best_accuracy['top5'] = value
+
         if local_rank == 0:
             logger.epoch_update(epoch, epoch_metrics, test_stats)
 
     if local_rank == 0:
         print(timer.summary())
 
-    logger.summary_writer(model, timer, bits_communicated)
+    logger.summary_writer(timer, best_accuracy, bits_communicated)
 
 
 if __name__ == "__main__":

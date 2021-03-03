@@ -156,7 +156,7 @@ def train(local_rank, log_path):
     optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
 
     # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config['num_epochs'], eta_min=0)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["num_epochs"], eta_min=0)
 
     for epoch in range(config["num_epochs"]):
         if local_rank == 0:
@@ -209,29 +209,29 @@ def train(local_rank, log_path):
                     )
 
         with timer("test.last", epoch):
-                test_stats = model.test()
-                if local_rank == 0:
-                    for key, value in test_stats.values().items():
-                        logger.log_info(
-                            key,
-                            {"value": value, "epoch": epoch, "bits": bits_communicated},
-                            tags={"split": "test"},
-                        )
-
-                        if "top1_accuracy" == key and value > best_accuracy['top1']:
-                            best_accuracy['top1'] = value
-                            logger.save_model(model)
-
-                        if "top5_accuracy" == key and value > best_accuracy['top5']:
-                            best_accuracy['top5'] = value
-
+            test_stats = model.test()
             if local_rank == 0:
-                logger.epoch_update(epoch, epoch_metrics, test_stats)
+                for key, value in test_stats.values().items():
+                    logger.log_info(
+                        key,
+                        {"value": value, "epoch": epoch, "bits": bits_communicated},
+                        tags={"split": "test"},
+                    )
+
+                    if "top1_accuracy" == key and value > best_accuracy["top1"]:
+                        best_accuracy["top1"] = value
+                        logger.save_model(model)
+
+                    if "top5_accuracy" == key and value > best_accuracy["top5"]:
+                        best_accuracy["top5"] = value
 
         if local_rank == 0:
-            print(timer.summary())
+            logger.epoch_update(epoch, epoch_metrics, test_stats)
 
-        logger.summary_writer(timer, best_accuracy, bits_communicated)
+    if local_rank == 0:
+        print(timer.summary())
+
+    logger.summary_writer(timer, best_accuracy, bits_communicated)
 
 
 if __name__ == "__main__":

@@ -41,7 +41,7 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=1,
+    num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
     # architecture="VGG16",
@@ -50,12 +50,12 @@ config = dict(
     # compression=1/1000,
     # quantization_level=6,
     # higher_quantization_level=10,
-    quantization_levels=[6, 10, 16],
-    # reducer="NoneAllReducer",
-    reducer="QSGDMaxNormMultiScaleReducer",
+    # quantization_levels=[6, 10, 16],
+    reducer="NoneAllReducer",
+    # reducer="QSGDMaxNormMultiScaleReducer",
     seed=42,
     log_verbosity=2,
-    lr=0.01,
+    lr=0.1,
 )
 
 
@@ -151,8 +151,11 @@ def train(local_rank, log_path):
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
-    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9)
-    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+    # optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
+
+    # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config['num_epochs'], eta_min=0)
 
     for epoch in range(config["num_epochs"]):
         if local_rank == 0:

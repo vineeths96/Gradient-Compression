@@ -9,12 +9,13 @@ class Logger:
     Logs information and model statistics
     """
 
-    def __init__(self, log_path, config, local_rank):
+    def __init__(self, config, local_rank):
+        self._log_path = f"./logs/{self.get_log_path().strftime('%Y_%m_%d_%H_%M_%S')}_{config['architecture']}"
+
         if local_rank == 0:
-            os.makedirs(log_path, exist_ok=True)
+            os.makedirs(self._log_path, exist_ok=True)
 
         self._local_rank = local_rank
-        self._log_path = log_path
         self._config = config
         self._start = datetime.datetime.now()
 
@@ -28,6 +29,15 @@ class Logger:
             "time",
         }
         self._log_dict = {metric: np.zeros(self._config["num_epochs"]) for metric in metric_list}
+
+    def get_log_path(self, dt=None, roundTo=30):
+        if not dt:
+            dt = datetime.datetime.now()
+
+        seconds = (dt.replace(tzinfo=None) - dt.min).seconds
+        rounding = (seconds + roundTo / 2) // roundTo * roundTo
+
+        return dt + datetime.timedelta(0, rounding - seconds, -dt.microsecond)
 
     def log_info(self, name, values, tags={}):
         value_list = []

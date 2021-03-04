@@ -86,7 +86,7 @@ class CIFAR:
 
         self._epoch += 1
 
-    def auxilary_train_dataloader(self, batch_size=32):
+    def auxiliary_train_dataloader(self, batch_size=32):
         train_sampler = DistributedSampler(dataset=self._train_set)
         train_sampler.set_epoch(self._epoch)
 
@@ -106,8 +106,6 @@ class CIFAR:
             labels = labels.to(self._device)
 
             yield imgs, labels
-
-        self._epoch += 1
 
     def test_dataloader(self, batch_size=32):
         test_sampler = DistributedSampler(dataset=self._test_set)

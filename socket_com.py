@@ -10,8 +10,8 @@ class ServerTCP:
         self.PORT = PORT
         self.SERVER = SERVER
         self.ADDR = (SERVER, PORT)
-        self.FORMAT = 'utf-8'
-        self.DISCONNECT_MESSAGE = torch.tensor(float('inf'))
+        self.FORMAT = "utf-8"
+        self.DISCONNECT_MESSAGE = torch.tensor(float("inf"))
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server.bind(self.ADDR)
@@ -21,7 +21,7 @@ class ServerTCP:
         torch.save(tensor, file)
 
         packet_size = len(file.getvalue())
-        header = '{0}:'.format(packet_size)
+        header = "{0}:".format(packet_size)
         header = bytes(header.encode())
 
         encoded = bytearray()
@@ -55,10 +55,10 @@ class ServerTCP:
                     readnext = False
 
                 if length is None:
-                    if b':' not in buffer:
+                    if b":" not in buffer:
                         break
 
-                    length_str, ignored, buffer = buffer.partition(b':')
+                    length_str, ignored, buffer = buffer.partition(b":")
                     length = int(length_str)
 
                     if len(buffer) == length:
@@ -97,8 +97,8 @@ class ClientTCP:
         self.PORT = PORT
         self.SERVER = SERVER
         self.ADDR = (SERVER, PORT)
-        self.FORMAT = 'utf-8'
-        self.DISCONNECT_MESSAGE = torch.tensor(float('inf'))
+        self.FORMAT = "utf-8"
+        self.DISCONNECT_MESSAGE = torch.tensor(float("inf"))
 
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client.connect(self.ADDR)
@@ -108,7 +108,7 @@ class ClientTCP:
         torch.save(tensor, file)
 
         packet_size = len(file.getvalue())
-        header = '{0}:'.format(packet_size)
+        header = "{0}:".format(packet_size)
         header = bytes(header.encode())
 
         encoded = bytearray()

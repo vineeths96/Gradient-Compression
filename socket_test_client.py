@@ -29,4 +29,4 @@ print(time_elapsed)
 # print("Total: ", time_sum)
 print(f"MSG: [{msg}] Avg TIme: {time_sum / REPS}")
 
-client.send(torch.tensor(float('inf')))
+client.send(torch.tensor(float("inf")))

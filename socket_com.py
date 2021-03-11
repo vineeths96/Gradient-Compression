@@ -4,7 +4,7 @@ import socket
 import threading
 
 
-class Server:
+class ServerTCP:
     def __init__(self, HEADER=64, PORT=5050, SERVER=socket.gethostbyname(socket.gethostname())):
         self.HEADER = HEADER
         self.PORT = PORT
@@ -14,7 +14,6 @@ class Server:
         self.DISCONNECT_MESSAGE = torch.tensor(float('inf'))
 
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server.bind(self.ADDR)
 
     def encode(self, tensor):
@@ -23,7 +22,7 @@ class Server:
 
         packet_size = len(file.getvalue())
         header = '{0}:'.format(packet_size)
-        header = bytes(header.encode())  # prepend length of array
+        header = bytes(header.encode())
 
         encoded = bytearray()
         encoded += header
@@ -41,17 +40,20 @@ class Server:
     def handle_client(self, conn, addr):
         print(f"[NEW CONNECTION] {addr} connected.")
 
-        length = None
-        buffer = bytearray()
         connected = True
         while connected:
-            msg = conn.recv(1024)
-            buffer += msg
+            length = None
+            buffer = bytearray()
 
-            if len(buffer) == length:
-                break
+            readnext = True
+            while readnext:
+                msg = conn.recv(1024)
+                buffer += msg
 
-            while True:
+                # print(len(buffer))
+                if len(buffer) == length:
+                    readnext = False
+
                 if length is None:
                     if b':' not in buffer:
                         break
@@ -59,24 +61,20 @@ class Server:
                     length_str, ignored, buffer = buffer.partition(b':')
                     length = int(length_str)
 
-                if len(buffer) < length:
-                    break
+                    if len(buffer) == length:
+                        readnext = False
 
-                buffer = buffer[:length]
-                length = None
-                break
+            buffer = buffer[:length]
 
-        msg = self.decode(buffer)
+            msg = self.decode(buffer)
+            print(f"[{addr}] {msg}")
+            conn.send("Message received".encode(self.FORMAT))
 
-            # if not len(msg.shape) and torch.isinf(msg):
-            #     print(msg)
-            #     connected = False
-
-        print(f"[{addr}] {msg}")
-        conn.send("Message received".encode(self.FORMAT))
-
-        conn.shutdown(1)
-        conn.close()
+            if not len(msg.shape) and torch.isinf(msg):
+                connected = False
+                print(f"[DROP CONNECTION] {addr} closed")
+                conn.shutdown(1)
+                conn.close()
 
     def start(self):
         self.server.listen()
@@ -93,17 +91,16 @@ class Server:
         self.server.close()
 
 
-class Client:
+class ClientTCP:
     def __init__(self, HEADER=64, PORT=5050, SERVER=socket.gethostbyname(socket.gethostname())):
         self.HEADER = HEADER
         self.PORT = PORT
         self.SERVER = SERVER
         self.ADDR = (SERVER, PORT)
         self.FORMAT = 'utf-8'
-        self.DISCONNECT_MESSAGE = "!DISCONNECT"
+        self.DISCONNECT_MESSAGE = torch.tensor(float('inf'))
 
         self.client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.client.connect(self.ADDR)
 
     def encode(self, tensor):
@@ -112,7 +109,7 @@ class Client:
 
         packet_size = len(file.getvalue())
         header = '{0}:'.format(packet_size)
-        header = bytes(header.encode())  # prepend length of array
+        header = bytes(header.encode())
 
         encoded = bytearray()
         encoded += header
@@ -129,14 +126,6 @@ class Client:
 
     def send(self, tensor):
         message = self.encode(tensor)
-
-        # print(message)
-
-        # msg_length = len(message)
-        # send_length = str(msg_length).encode(self.FORMAT)
-        # send_length += b' ' * (self.HEADER - len(send_length))
-        # self.client.send(send_length)
-        # print(self.decode(message))
 
         self.client.send(message)
         print(self.client.recv(2048).decode(self.FORMAT))

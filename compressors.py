@@ -829,7 +829,7 @@ class QSGDMaxNormMultiScaleCompressor:
             xi_array = l_array_floored + mask
             xi_array = xi_array.to(dtype=torch.int32)
 
-            sign_xi_array = sign_array * xi_array#).to(device=self._device)
+            sign_xi_array = sign_array * xi_array  # ).to(device=self._device)
             self._cache[ind] = sign_xi_array
 
     def compress_mask(self, norm, tensor):
@@ -847,7 +847,7 @@ class QSGDMaxNormMultiScaleCompressor:
         sign_xi_array = torch.zeros_like(resolution_mask, dtype=torch.float32)
 
         for ind in range(len(self._quantization_levels)):
-            sign_xi_array[resolution_mask == ind] = (self._cache[ind][resolution_mask == ind])
+            sign_xi_array[resolution_mask == ind] = self._cache[ind][resolution_mask == ind]
 
         sign_xi_array = sign_xi_array.to(dtype=self._dtype, device=self._device)
 

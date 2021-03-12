@@ -70,7 +70,7 @@ def plot_loss_curves(log_path):
                 label = reducer
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
-            loss = log_dict[()].get("loss")
+            loss = log_dict[()].get("test_loss")
             axes_main.plot(loss, label=label)
 
             axes_inner.plot(axes_inner_range, loss[axes_inner_range])
@@ -1311,8 +1311,8 @@ def plot_performance_modelling(log_path):
 if __name__ == "__main__":
     root_log_path = "./logs/plot_logs/"
 
-    # plot_loss_curves(os.path.join(root_log_path, "convergence"))
-    # plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    plot_loss_curves(os.path.join(root_log_path, "convergence"))
+    plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
     # plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
     # plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
     # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
@@ -1323,7 +1323,7 @@ if __name__ == "__main__":
     # plot_waiting_times_AWS(os.path.join(root_log_path, 'waiting_times'))
     # plot_mean_variance_AWS(os.path.join(root_log_path, 'waiting_times'), 4)
     # plot_reduce_times_AWS(os.path.join(root_log_path, 'waiting_times'))
-    plot_heterogenous_AWS(os.path.join(root_log_path, "heterogenous"))
+    # plot_heterogenous_AWS(os.path.join(root_log_path, "heterogenous"))
     # plot_histogram_heterogenous_AWS(os.path.join(root_log_path, 'heterogenous'))
     # plot_mean_variance_reduce_time_AWS(os.path.join(root_log_path, 'waiting_times'), 4)
     # plot_performance_modelling(os.path.join(root_log_path, "scalability"))

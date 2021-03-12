@@ -137,7 +137,8 @@ class Timer:
                 "total_time": total,
             }
 
-        data["reduce_times"] = self.reduce_times
+        # Uncomment to store reduce times
+        # data["reduce_times"] = self.reduce_times
 
         with open(json_file_path, "w") as fp:
             json.dump(data, fp)

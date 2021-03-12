@@ -86,7 +86,7 @@ class CIFAR:
 
         self._epoch += 1
 
-    def auxilary_train_dataloader(self, batch_size=32):
+    def auxiliary_train_dataloader(self, batch_size=32):
         train_sampler = DistributedSampler(dataset=self._train_set)
         train_sampler.set_epoch(self._epoch)
 
@@ -106,8 +106,6 @@ class CIFAR:
             labels = labels.to(self._device)
 
             yield imgs, labels
-
-        self._epoch += 1
 
     def test_dataloader(self, batch_size=32):
         test_sampler = DistributedSampler(dataset=self._test_set)
@@ -154,6 +152,23 @@ class CIFAR:
             loss.backward()
 
         with self._timer("batch.evaluate", float(self._epoch)):
+            metrics = self.evaluate_predictions(prediction, labels)
+
+        grad_vec = [parameter.grad for parameter in self._model.parameters()]
+
+        return loss.detach(), grad_vec, metrics
+
+    def auxiliary_batch_loss_with_gradients(self, batch):
+        imgs, labels = batch
+
+        with self._timer("batch.auxiliary.forward", float(self._epoch)):
+            prediction = self._model(imgs)
+            loss = self._criterion(prediction, labels)
+
+        with self._timer("batch.auxiliary.backward", float(self._epoch)):
+            loss.backward()
+
+        with self._timer("batch.auxiliary.evaluate", float(self._epoch)):
             metrics = self.evaluate_predictions(prediction, labels)
 
         grad_vec = [parameter.grad for parameter in self._model.parameters()]

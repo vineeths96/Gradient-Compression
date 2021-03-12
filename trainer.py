@@ -43,19 +43,20 @@ config = dict(
     distributed_backend="nccl",
     num_epochs=1,
     batch_size=128,
-    architecture="ResNet50",
+    architecture="LeNet",
+    # architecture="ResNet50",
     # architecture="VGG16",
     local_steps=1,
-    # K=10000,
+    K=10000,
     # compression=1/1000,
-    # quantization_level=6,
+    quantization_level=6,
     # higher_quantization_level=10,
-    quantization_levels=[6, 10, 16],
+    # quantization_levels=[6, 10, 16],
     # reducer="NoneAllReducer",
-    reducer="QSGDMaxNormMultiScaleReducer",
+    reducer="GlobalRandKMaxNormReducer",
     seed=42,
     log_verbosity=2,
-    lr=0.01,
+    lr=0.1,
 )
 
 
@@ -72,8 +73,8 @@ def initiate_distributed():
     )
 
 
-def train(local_rank, log_path):
-    logger = Logger(log_path, config, local_rank)
+def train(local_rank):
+    logger = Logger(config, local_rank)
 
     # torch.manual_seed(config["seed"] + local_rank)
     # np.random.seed(config["seed"] + local_rank)
@@ -139,20 +140,24 @@ def train(local_rank, log_path):
             device,
             timer,
             quantization_levels=config["quantization_levels"],
-    )
+        )
     else:
         raise NotImplementedError("Reducer method not implemented")
 
     lr = config["lr"]
     bits_communicated = 0
+    best_accuracy = {"top1": 0, "top5": 0}
 
     global_iteration_count = 0
     model = CIFAR(device, timer, config["architecture"], config["seed"] + local_rank)
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
-    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9)
-    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+    # optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
+
+    # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["num_epochs"], eta_min=0)
 
     for epoch in range(config["num_epochs"]):
         if local_rank == 0:
@@ -206,13 +211,20 @@ def train(local_rank, log_path):
                         tags={"split": "test"},
                     )
 
+                    if "top1_accuracy" == key and value > best_accuracy["top1"]:
+                        best_accuracy["top1"] = value
+                        logger.save_model(model)
+
+                    if "top5_accuracy" == key and value > best_accuracy["top5"]:
+                        best_accuracy["top5"] = value
+
         if local_rank == 0:
             logger.epoch_update(epoch, epoch_metrics, test_stats)
 
     if local_rank == 0:
         print(timer.summary())
 
-    logger.summary_writer(model, timer, bits_communicated)
+    logger.summary_writer(timer, best_accuracy, bits_communicated)
 
 
 if __name__ == "__main__":
@@ -222,7 +234,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     local_rank = args.local_rank
 
-    log_path = f"./logs/{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}_{config['architecture']}"
-
     initiate_distributed()
-    train(local_rank, log_path)
+    train(local_rank)

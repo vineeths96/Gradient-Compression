@@ -33,6 +33,7 @@ from reducer import (
     NUQSGDMaxNormBiasedMemoryReducer,
     QSGDMaxNormTwoScaleReducer,
     GlobalRandKMaxNormTwoScaleReducer,
+    QSGDMaxNormMultiScaleReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -40,16 +41,17 @@ from metrics import AverageMeter
 
 config = dict(
     distributed_backend="nccl",
-    num_epochs=1,
+    num_epochs=150,
     batch_size=128,
     auxiliary_batch_size=32,
-    architecture="ResNet50",
-    # architecture="VGG16",
+    # architecture="ResNet50",
+    architecture="VGG16",
     local_steps=1,
     # K=10000,
     # compression=1/1000,
     # quantization_level=6,
     # higher_quantization_level=10,
+    # quantization_levels=[6, 10, 16],
     reducer="NoneAllReducer",
     seed=42,
     log_verbosity=2,
@@ -70,8 +72,8 @@ def initiate_distributed():
     )
 
 
-def train(local_rank, log_path):
-    logger = Logger(log_path, config, local_rank)
+def train(local_rank):
+    logger = Logger(config, local_rank)
 
     # torch.manual_seed(config["seed"] + local_rank)
     # np.random.seed(config["seed"] + local_rank)
@@ -132,19 +134,29 @@ def train(local_rank, log_path):
             lower_quantization_level=config["quantization_level"],
             higher_quantization_level=config["higher_quantization_level"],
         )
+    elif config["reducer"] in ["QSGDMaxNormMultiScaleReducer"]:
+        reducer = globals()[config["reducer"]](
+            device,
+            timer,
+            quantization_levels=config["quantization_levels"],
+        )
     else:
         raise NotImplementedError("Reducer method not implemented")
 
     lr = config["lr"]
     bits_communicated = 0
+    best_accuracy = {"top1": 0, "top5": 0}
 
     global_iteration_count = 0
     model = CIFAR(device, timer, config["architecture"], config["seed"] + local_rank)
 
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
-    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9)
-    scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+    # optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4)
+    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
+
+    # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["num_epochs"], eta_min=0)
 
     for epoch in range(config["num_epochs"]):
         if local_rank == 0:
@@ -156,20 +168,21 @@ def train(local_rank, log_path):
 
         epoch_metrics = AverageMeter(device)
 
-        auxiliary_train_loader = model.auxilary_train_dataloader(config["auxiliary_batch_size"])
         train_loader = model.train_dataloader(config["batch_size"])
-
         for i, batch in enumerate(train_loader):
             global_iteration_count += 1
             epoch_frac = epoch + i / model.len_train_loader
 
             with timer("batch", epoch_frac):
-                auxiliary_batch = next(auxiliary_train_loader)
-
-                _, grads, metrics = model.batch_loss_with_gradients(auxiliary_batch)
-                optimizer.step()
+                try:
+                    auxiliary_batch = next(auxiliary_train_loader)
+                except:
+                    auxiliary_train_loader = model.auxiliary_train_dataloader(config["auxiliary_batch_size"])
+                    auxiliary_batch = next(auxiliary_train_loader)
 
                 _, grads, metrics = model.batch_loss_with_gradients(batch)
+                _, grads, auxiliary_metrics = model.auxiliary_batch_loss_with_gradients(auxiliary_batch)
+
                 epoch_metrics.add(metrics)
 
                 if global_iteration_count % config["local_steps"] == 0:
@@ -205,13 +218,20 @@ def train(local_rank, log_path):
                         tags={"split": "test"},
                     )
 
+                    if "top1_accuracy" == key and value > best_accuracy["top1"]:
+                        best_accuracy["top1"] = value
+                        logger.save_model(model)
+
+                    if "top5_accuracy" == key and value > best_accuracy["top5"]:
+                        best_accuracy["top5"] = value
+
         if local_rank == 0:
             logger.epoch_update(epoch, epoch_metrics, test_stats)
 
     if local_rank == 0:
         print(timer.summary())
 
-    logger.summary_writer(model, timer, bits_communicated)
+    logger.summary_writer(timer, best_accuracy, bits_communicated)
 
 
 if __name__ == "__main__":
@@ -221,7 +241,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     local_rank = args.local_rank
 
-    log_path = f"./logs/{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}_{config['architecture']}"
-
     initiate_distributed()
-    train(local_rank, log_path)
+    train(local_rank)

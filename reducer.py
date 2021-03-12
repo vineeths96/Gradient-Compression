@@ -1806,7 +1806,6 @@ class QSGDMaxNormMultiScaleReducer(Reducer):
         return 8 * tensor.nelement() * tensor.element_size()
 
 
-
 # class GlobalRandKMaxNormMultiScaleReducer(Reducer):
 #     """
 #     All reduce reducer with QSGD MaxNorm Multi Level compression of random K indices.
@@ -1909,4 +1908,3 @@ class QSGDMaxNormMultiScaleReducer(Reducer):
 #
 #     def n_bits(self, tensor):
 #         return 8 * tensor.nelement() * tensor.element_size()
-

@@ -13,7 +13,23 @@ class ServerTCP:
         self.FORMAT = "utf-8"
         self.DISCONNECT_MESSAGE = torch.tensor(float("inf"))
 
+        # self.SEND_BUF_SIZE = 1024
+        # self.RECV_BUF_SIZE = 1024
+
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        # self.server.setsockopt(
+        #     socket.SOL_SOCKET,
+        #     socket.SO_SNDBUF,
+        #     self.SEND_BUF_SIZE)
+        # self.server.setsockopt(
+        #     socket.SOL_SOCKET,
+        #     socket.SO_RCVBUF,
+        #     self.RECV_BUF_SIZE)
+        #
+        # bufsize = self.server.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
+        # print("Buffer size [After]:%d" % bufsize)
+
         self.server.bind(self.ADDR)
 
     def encode(self, tensor):
@@ -131,6 +147,136 @@ class ClientTCP:
         print(self.client.recv(2048).decode(self.FORMAT))
 
 
+# class ServerUDP:
+#     def __init__(self, HEADER=64, PORT=5050, SERVER=socket.gethostbyname(socket.gethostname())):
+#         self.HEADER = HEADER
+#         self.PORT = PORT
+#         self.SERVER = SERVER
+#         self.ADDR = (SERVER, PORT)
+#         self.FORMAT = "utf-8"
+#         self.DISCONNECT_MESSAGE = torch.tensor(float("inf"))
+#
+#         self.server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#         self.server.bind(self.ADDR)
+#
+#     def encode(self, tensor):
+#         file = io.BytesIO()
+#         torch.save(tensor, file)
+#
+#         packet_size = len(file.getvalue())
+#         header = "{0}:".format(packet_size)
+#         header = bytes(header.encode())
+#
+#         encoded = bytearray()
+#         encoded += header
+#
+#         file.seek(0)
+#         encoded += file.read()
+#
+#         return encoded
+#
+#     def decode(self, buffer):
+#         tensor = torch.load(io.BytesIO(buffer))
+#
+#         return tensor
+#
+#     def handle_client(self):
+#         print(f"[NEW CONNECTION] {0} connected.")
+#
+#         connected = True
+#         while connected:
+#             length = None
+#             buffer = bytearray()
+#
+#             readnext = True
+#             while readnext:
+#                 msg, addr = self.server.recvfrom(1024*2)
+#                 buffer += msg
+#
+#                 if len(buffer) == length:
+#                     readnext = False
+#
+#                 if length is None:
+#                     if b":" not in buffer:
+#                         break
+#
+#                     length_str, ignored, buffer = buffer.partition(b":")
+#                     length = int(length_str)
+#
+#                     if len(buffer) == length:
+#                         readnext = False
+#
+#             buffer = buffer[:length]
+#             # print(buffer)
+#
+#             msg = self.decode(buffer)
+#             print(f"[{addr}] {msg}")
+#             self.server.sendto("Message received".encode(self.FORMAT), addr)
+#
+#             if not len(msg.shape) and torch.isinf(msg):
+#                 connected = False
+#                 print(f"[DROP CONNECTION] {addr} closed")
+#
+#     def start(self):
+#         # self.server.listen()
+#         print(f"[LISTENING] Server is listening on {self.SERVER}")
+#
+#         while True:
+#             # conn, addr = self.server.accept()
+#             # thread = threading.Thread(target=self.handle_client, args=(conn, addr))
+#             # thread.start()
+#             # print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+#
+#             self.handle_client()
+#             # data = self.server.recv(1024)
+#             # print(self.decode(data))
+#             # self.server.send("Message received".encode(self.FORMAT))
+#
+#     def stop(self):
+#         self.server.shutdown(1)
+#         self.server.close()
+#
+#
+# class ClientUDP:
+#     def __init__(self, HEADER=64, PORT=5050, SERVER=socket.gethostbyname(socket.gethostname())):
+#         self.HEADER = HEADER
+#         self.PORT = PORT
+#         self.SERVER = SERVER
+#         self.ADDR = (SERVER, PORT)
+#         self.FORMAT = "utf-8"
+#         self.DISCONNECT_MESSAGE = torch.tensor(float("inf"))
+#
+#         self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#         self.client.connect(self.ADDR)
+#
+#     def encode(self, tensor):
+#         file = io.BytesIO()
+#         torch.save(tensor, file)
+#
+#         packet_size = len(file.getvalue())
+#         header = "{0}:".format(packet_size)
+#         header = bytes(header.encode())
+#
+#         encoded = bytearray()
+#         encoded += header
+#
+#         file.seek(0)
+#         encoded += file.read()
+#
+#         return encoded
+#
+#     def decode(self, buffer):
+#         tensor = torch.load(io.BytesIO(buffer))
+#
+#         return tensor
+#
+#     def send(self, tensor):
+#         message = self.encode(tensor)
+#
+#         self.client.send(message)
+#         # print(self.client.recv(2048).decode(self.FORMAT))
+
+
 class ServerUDP:
     def __init__(self, HEADER=64, PORT=5050, SERVER=socket.gethostbyname(socket.gethostname())):
         self.HEADER = HEADER
@@ -169,37 +315,61 @@ class ServerUDP:
 
         connected = True
         while connected:
-            length = None
-            buffer = bytearray()
+            # length = None
+            # buffer = bytearray()
+            buffer = []
 
             readnext = True
             while readnext:
-                msg, addr = self.server.recvfrom(1024*2)
-                buffer += msg
+                msg, addr = self.server.recvfrom(1024)
+                # buffer += msg
+                # print(self.decode(msg))
+                # exit(66)
 
-                # print(len(buffer))
-                if len(buffer) == length:
-                    readnext = False
+                if not len(self.decode(msg).shape) and torch.isinf(self.decode(msg)):
+                    print("break")
+                    break
 
-                if length is None:
-                    if b":" not in buffer:
-                        break
+                buffer.append(self.decode(msg))
 
-                    length_str, ignored, buffer = buffer.partition(b":")
-                    length = int(length_str)
+                # buffer += msg
 
-                    if len(buffer) == length:
-                        readnext = False
+                # print(buffer)
+                # print(self.decode(buffer))
 
-            buffer = buffer[:length]
+                # if len(buffer) == length:
+                #     readnext = False
+                #
+                # if length is None:
+                #     if b":" not in buffer:
+                #         break
+                #
+                #     length_str, ignored, buffer = buffer.partition(b":")
+                #     length = int(length_str)
+                #
+                #     if len(buffer) == length:
+                #         readnext = False
 
-            msg = self.decode(buffer)
-            print(f"[{addr}] {msg}")
-            self.server.sendto("Message received".encode(self.FORMAT), addr)
+            # buffer = buffer[:length]
+            # print("Hi")
 
-            if not len(msg.shape) and torch.isinf(msg):
-                connected = False
-                print(f"[DROP CONNECTION] {addr} closed")
+            # print(buffer)
+            # print(torch.cat(buffer[:-1]))
+
+            # print(msg)
+            # try:
+            # msg = self.decode(buffer)
+            # except:
+            #     continue
+            #     print(buffer)
+                # exit(66)
+
+            # print(f"[{addr}] {self.decode(msg)}")
+            # self.server.sendto("Message received".encode(self.FORMAT), addr)
+
+            # if not len(msg.shape) and torch.isinf(msg):
+            #     connected = False
+            #     print(f"[DROP CONNECTION] {addr} closed")
 
     def start(self):
         # self.server.listen()
@@ -237,15 +407,16 @@ class ClientUDP:
         file = io.BytesIO()
         torch.save(tensor, file)
 
-        packet_size = len(file.getvalue())
-        header = "{0}:".format(packet_size)
-        header = bytes(header.encode())
-
-        encoded = bytearray()
-        encoded += header
+        # packet_size = len(file.getvalue())
+        # header = "{0}:".format(packet_size)
+        # header = bytes(header.encode())
+        #
+        # encoded = bytearray()
+        # encoded += header
 
         file.seek(0)
-        encoded += file.read()
+        # encoded += file.read()
+        encoded = file.read()
 
         return encoded
 
@@ -258,4 +429,5 @@ class ClientUDP:
         message = self.encode(tensor)
 
         self.client.send(message)
+        # self.client.close()
         # print(self.client.recv(2048).decode(self.FORMAT))

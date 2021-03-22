@@ -155,7 +155,20 @@ class ServerUDP:
         self.FORMAT = "utf-8"
         self.DISCONNECT_MESSAGE = torch.tensor(float("inf"))
 
+        # self.SEND_BUF_SIZE = 4096
+        # self.RECV_BUF_SIZE = 4096
+
         self.server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+        # self.server.setsockopt(
+        #     socket.SOL_SOCKET,
+        #     socket.SO_SNDBUF,
+        #     self.SEND_BUF_SIZE)
+        # self.server.setsockopt(
+        #     socket.SOL_SOCKET,
+        #     socket.SO_RCVBUF,
+        #     self.RECV_BUF_SIZE)
+
         self.server.bind(self.ADDR)
 
     def encode(self, tensor):
@@ -176,23 +189,27 @@ class ServerUDP:
         print(f"[NEW CONNECTION] {0} connected.")
 
         buffer = []
-
         readnext = True
         while readnext:
-            msg, addr = self.server.recvfrom(8192)
+            msg, addr = self.server.recvfrom(1024 * 2)
             self.server.sendto("Message received".encode(self.FORMAT), addr)
 
-            if not len(self.decode(msg).shape) and torch.isinf(self.decode(msg)):
+            try:
+                decoded_msg = self.decode(msg)
+            except:
+                continue
+
+            if not len(decoded_msg.shape) and torch.isinf(decoded_msg):
                 break
 
-            buffer.append(self.decode(msg))
+            buffer.append(decoded_msg)
 
         if len(buffer) > 1:
             data = torch.cat(buffer)
         else:
             data = buffer
 
-        print(f"[{addr}] {data}")
+        print(f"[{addr}] {data}")# {data.nelement()}")
         self.server.sendto("Message received".encode(self.FORMAT), addr)
 
     def start(self):
@@ -236,5 +253,5 @@ class ClientUDP:
 
         self.client.sendto(message, self.ADDR)
 
-        data, server = self.client.recvfrom(1024)
-        print(data.decode(self.FORMAT))
+        # data, server = self.client.recvfrom(1024)
+        # print(data.decode(self.FORMAT))

@@ -43,9 +43,9 @@ config = dict(
     distributed_backend="nccl",
     num_epochs=150,
     batch_size=128,
-    # architecture="LeNet",
-    # architecture="ResNet50",
-    architecture="VGG16",
+    auxiliary_batch_size=32,
+    architecture="ResNet50",
+    # architecture="VGG16",
     local_steps=1,
     # K=10000,
     # compression=1/1000,
@@ -153,7 +153,12 @@ def train(local_rank):
     send_buffers = [torch.zeros_like(param) for param in model.parameters]
 
     # optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4)
-    optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
+    # if local_rank == 0:
+    #     optimizer = optim.SGD(params=model.parameters, lr=1.25 * lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
+    # else:
+    #     optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
+
+    optimizer = optim.SGD(params=model.parameters, lr=1.125 * lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
 
     # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["num_epochs"], eta_min=0)
@@ -176,6 +181,19 @@ def train(local_rank):
             with timer("batch", epoch_frac):
                 _, grads, metrics = model.batch_loss_with_gradients(batch)
                 epoch_metrics.add(metrics)
+
+                if local_rank == 0:
+                    try:
+                        auxiliary_batch = next(auxiliary_train_loader)
+                    except:
+                        auxiliary_train_loader = model.auxiliary_train_dataloader(config["auxiliary_batch_size"])
+                        auxiliary_batch = next(auxiliary_train_loader)
+
+                    _, grads, auxiliary_metrics = model.auxiliary_batch_loss_with_gradients(auxiliary_batch)
+                elif local_rank == 1:
+                    import time
+
+                    time.sleep(0.5)
 
                 if global_iteration_count % config["local_steps"] == 0:
                     with timer("batch.accumulate", epoch_frac, verbosity=2):

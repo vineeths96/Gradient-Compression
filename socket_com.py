@@ -5,7 +5,7 @@ import threading
 
 
 class ServerTCP:
-    def __init__(self, HEADER=64, PORT=5050, SERVER=socket.gethostbyname(socket.gethostname())):
+    def __init__(self, HEADER=64, PORT=5050, MSG_SIZE=100000, SERVER=socket.gethostbyname(socket.gethostname())):
         self.HEADER = HEADER
         self.PORT = PORT
         self.SERVER = SERVER
@@ -28,6 +28,8 @@ class ServerTCP:
             self.RECV_BUF_SIZE)
 
         self.server.bind(self.ADDR)
+
+        self.vector = torch.zeros(MSG_SIZE)
 
         # buffsize = self.server.getsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF)
         # print("Buffer size [After]:%d" % buffsize)
@@ -90,16 +92,23 @@ class ServerTCP:
                 print(f"[DROP CONNECTION] {addr} closed")
                 conn.shutdown(1)
                 conn.close()
+                continue
+
+            self.vector.index_add_(0, msg[:, 0].to(torch.int64), msg[:, 1])
+            print("Vector", self.vector)
 
     def start(self):
         self.server.listen()
         print(f"[LISTENING] Server is listening on {self.SERVER}")
 
-        while True:
-            conn, addr = self.server.accept()
-            thread = threading.Thread(target=self.handle_client, args=(conn, addr))
-            thread.start()
-            print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+        try:
+            while True:
+                conn, addr = self.server.accept()
+                thread = threading.Thread(target=self.handle_client, args=(conn, addr))
+                thread.start()
+                print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
+        except KeyboardInterrupt:
+            self.stop()
 
     def stop(self):
         self.server.shutdown(1)
@@ -147,7 +156,7 @@ class ClientTCP:
 
 
 class ServerUDP:
-    def __init__(self, HEADER=64, PORT=5050, SERVER=socket.gethostbyname(socket.gethostname())):
+    def __init__(self, HEADER=64, PORT=5050, MSG_SIZE=100000, SERVER=socket.gethostbyname(socket.gethostname())):
         self.HEADER = HEADER
         self.PORT = PORT
         self.SERVER = SERVER
@@ -171,6 +180,8 @@ class ServerUDP:
 
         self.server.bind(self.ADDR)
 
+        self.vector = torch.zeros(MSG_SIZE)
+
     def encode(self, tensor):
         file = io.BytesIO()
         torch.save(tensor, file)
@@ -193,6 +204,9 @@ class ServerUDP:
         while readnext:
             msg, addr = self.server.recvfrom(1024 * 2)
             self.server.sendto("Message received".encode(self.FORMAT), addr)
+            # print(self.decode(msg))
+            # print(len(msg))
+            # decoded_msg = self.decode(msg)
 
             try:
                 decoded_msg = self.decode(msg)
@@ -205,21 +219,31 @@ class ServerUDP:
             buffer.append(decoded_msg)
 
         if len(buffer) > 1:
-            data = torch.cat(buffer)
+            msg = torch.cat(buffer)
         else:
-            data = buffer
+            msg = buffer[0]
 
-        print(f"[{addr}] {data}")# {data.nelement()}")
+        print(f"[{addr}] {msg}")
+
+        indices = msg[:, 0].to(torch.int64)
+        self.vector.index_add_(0, indices, msg[:, 1])
+        print("Vector", self.vector)
+
         self.server.sendto("Message received".encode(self.FORMAT), addr)
 
     def start(self):
         print(f"[LISTENING] Server is listening on {self.SERVER}")
 
-        while True:
-            self.handle_client()
+        try:
+            while True:
+                self.handle_client()
+        except KeyboardInterrupt:
+            self.stop()
+        # while True:
+        #     self.handle_client()
 
     def stop(self):
-        self.server.shutdown(1)
+        print("Vector", self.vector)
         self.server.close()
 
 

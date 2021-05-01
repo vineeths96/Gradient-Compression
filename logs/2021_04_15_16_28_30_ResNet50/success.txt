@@ -1,0 +1,18 @@
+Training completed at 2021-04-15 16:33:09.770733
+
+Best Top 1 Accuracy: 0.2734375
+Best Top 5 Accuracy: 0.828125
+
+Training parameters
+distributed_backend : nccl
+num_epochs : 5
+batch_size : 128
+architecture : ResNet50
+local_steps : 1
+reducer : QSGDMaxNormTwoScaleReducer
+seed : 42
+log_verbosity : 2
+lr : 0.1
+quantization_level : 6
+higher_quantization_level : 10
+Bits communicated: 366925166400

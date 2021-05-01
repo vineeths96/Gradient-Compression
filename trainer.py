@@ -34,6 +34,7 @@ from reducer import (
     QSGDMaxNormTwoScaleReducer,
     GlobalRandKMaxNormTwoScaleReducer,
     QSGDMaxNormMultiScaleReducer,
+    RankKReducer,
 )
 from timer import Timer
 from logger import Logger
@@ -43,15 +44,15 @@ config = dict(
     distributed_backend="nccl",
     num_epochs=150,
     batch_size=128,
-    # architecture="LeNet",
-    # architecture="ResNet50",
-    architecture="VGG16",
+    architecture="ResNet50",
+    # architecture="VGG16",
     local_steps=1,
     # K=10000,
     # compression=1/1000,
     # quantization_level=6,
     # higher_quantization_level=10,
     # quantization_levels=[6, 10, 16],
+    # rank=1,
     reducer="NoneAllReducer",
     seed=42,
     log_verbosity=2,
@@ -139,6 +140,12 @@ def train(local_rank):
             device,
             timer,
             quantization_levels=config["quantization_levels"],
+        )
+    elif config["reducer"] in ["RankKReducer"]:
+        reducer = globals()[config["reducer"]](
+            device,
+            timer,
+            rank=config["rank"],
         )
     else:
         raise NotImplementedError("Reducer method not implemented")

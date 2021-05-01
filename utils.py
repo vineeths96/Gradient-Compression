@@ -98,6 +98,77 @@ def plot_loss_curves(log_path):
         plt.show()
 
 
+def plot_loss_time_curves(log_path):
+    models = ["ResNet50", "VGG16"]
+    experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
+
+    for group_ind, experiment_group in enumerate(experiment_groups):
+        fig, axes_main = plt.subplots(figsize=[10, 7])
+        axes_inner = plt.axes([0.25, 0.6, 0.3, 0.3])
+        axes_inner_range = list(range(40, 80))
+
+        experiment_group.sort()
+
+        for ind, experiment in enumerate(experiment_group):
+            reducer = None
+            quant_level = None
+            higher_quant_level = None
+            compression = None
+
+            with open(os.path.join(experiment, "success.txt")) as file:
+                for line in file:
+                    line = line.rstrip()
+                    if line.startswith("reducer"):
+                        reducer = line.split(": ")[-1]
+
+                    if line.startswith("quantization_level"):
+                        quant_level = line.split(": ")[-1]
+
+                    if line.startswith("higher_quantization_level"):
+                        higher_quant_level = line.split(": ")[-1]
+
+                    if line.startswith("compression"):
+                        compression = line.split(": ")[-1]
+
+            if higher_quant_level:
+                label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
+            elif quant_level:
+                label = " ".join([reducer, quant_level, "bits"])
+            elif compression:
+                label = " ".join([reducer, "K:", compression])
+            else:
+                label = reducer
+
+            log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
+            loss = log_dict[()].get("test_loss")
+            time = log_dict[()].get("time")
+            axes_main.plot(time, loss, label=label)
+
+            axes_inner.plot(time[axes_inner_range], loss[axes_inner_range])
+
+        axes_inner.grid()
+        mark_inset(
+            axes_main,
+            axes_inner,
+            loc1a=4,
+            loc1b=1,
+            loc2a=3,
+            loc2b=2,
+            fc="none",
+            ec="0.5",
+        )
+
+        # axes_main.grid()
+        axes_main.set_xlabel("TIme")
+        axes_main.set_ylabel("Loss")
+        axes_main.set_title(f"Loss Time curve {models[group_ind]}")
+        axes_main.legend()
+
+        plt.tight_layout()
+        plt.savefig(f"./plots/loss_time_{models[group_ind]}.png")
+        plt.show()
+
+
 def plot_top1_accuracy_curves(log_path):
     models = ["ResNet50", "VGG16"]
     experiment_groups = [glob.glob(f"{log_path}/*{model}") for model in models]
@@ -421,7 +492,7 @@ def plot_time_breakdown(log_path):
                 else:
                     label = reducer
 
-            time_df = pd.read_json(os.path.join(experiment, "timer_summary.json")).loc["average_duration"]
+            time_df = pd.read_json(os.path.join(experiment, "timer_summary_0.json")).loc["average_duration"]
             time_values = time_df[time_labels].values
 
             plt.bar(
@@ -1312,7 +1383,8 @@ if __name__ == "__main__":
     root_log_path = "./logs/plot_logs/"
 
     plot_loss_curves(os.path.join(root_log_path, "convergence"))
-    plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
+    plot_loss_time_curves(os.path.join(root_log_path, "convergence"))
+    # plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
     # plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
     # plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
     # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))

@@ -39,6 +39,8 @@ from reducer import (
 from timer import Timer
 from logger import Logger
 from metrics import AverageMeter
+from seed import set_seed
+
 
 config = dict(
     distributed_backend="nccl",
@@ -76,11 +78,7 @@ def initiate_distributed():
 def train(local_rank):
     logger = Logger(config, local_rank)
 
-    # torch.manual_seed(config["seed"] + local_rank)
-    # np.random.seed(config["seed"] + local_rank)
-    torch.manual_seed(config["seed"])
-    np.random.seed(config["seed"])
-
+    set_seed(config['seed'])
     device = torch.device(f"cuda:{local_rank}")
     timer = Timer(verbosity_level=config["log_verbosity"])
 
@@ -116,6 +114,7 @@ def train(local_rank):
             timer,
             K=config["K"],
             quantization_level=config["quantization_level"],
+            seed=config['seed'],
         )
     elif config["reducer"] in ["TopKReducer", "GlobalTopKReducer"]:
         reducer = globals()[config["reducer"]](device, timer, K=config["K"])
@@ -134,6 +133,7 @@ def train(local_rank):
             timer,
             lower_quantization_level=config["quantization_level"],
             higher_quantization_level=config["higher_quantization_level"],
+            seed=config['seed'],
         )
     elif config["reducer"] in ["QSGDMaxNormMultiScaleReducer"]:
         reducer = globals()[config["reducer"]](

@@ -22,6 +22,7 @@ from compressors import (
     QSGDMaxNormMultiScaleCompressor,
     # GlobalRandKMultiScaleCompressor,
 )
+from seed import set_seed
 
 
 class Reducer:
@@ -710,9 +711,10 @@ class GlobalRandKMaxNormReducer(Reducer):
     All gathers norms, normalizing with max norm, all reduces sign array * xi vector.
     """
 
-    def __init__(self, device, timer, K=10000, quantization_level=8):
+    def __init__(self, device, timer, seed, K=10000, quantization_level=8):
         super(GlobalRandKMaxNormReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
+        self._seed = seed
         self._K = K
         self._indices_queue = []
 
@@ -724,6 +726,7 @@ class GlobalRandKMaxNormReducer(Reducer):
             flat_grad = TensorBuffer(grad_in)
 
         if not self._indices_queue:
+            set_seed(self._seed)
             self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
             self._indices_queue = list(self._indices_queue)
 
@@ -781,9 +784,10 @@ class MaxNormGlobalRandKReducer(Reducer):
     All gathers norms, normalizing with max norm, all reduces sign array * xi vector.
     """
 
-    def __init__(self, device, timer, K=10000, quantization_level=8):
+    def __init__(self, device, timer, seed, K=10000, quantization_level=8):
         super(MaxNormGlobalRandKReducer, self).__init__(device, timer)
         self._quantization_level = quantization_level
+        self._seed = seed
         self._K = K
         self._indices_queue = []
 
@@ -795,6 +799,7 @@ class MaxNormGlobalRandKReducer(Reducer):
             flat_grad = TensorBuffer(grad_in)
 
         if not self._indices_queue:
+            set_seed(self._seed)
             self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
             self._indices_queue = list(self._indices_queue)
 
@@ -1634,11 +1639,13 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
         self,
         device,
         timer,
+        seed,
         K=10000,
         lower_quantization_level=6,
         higher_quantization_level=10,
     ):
         super(GlobalRandKMaxNormTwoScaleReducer, self).__init__(device, timer)
+        self._seed = seed
         self._lower_quantization_level = lower_quantization_level
         self._higher_quantization_level = higher_quantization_level
         self._K = K
@@ -1656,6 +1663,7 @@ class GlobalRandKMaxNormTwoScaleReducer(Reducer):
             flat_grad = TensorBuffer(grad_in)
 
         if not self._indices_queue:
+            set_seed(self._seed)
             self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
             self._indices_queue = list(self._indices_queue)
 
@@ -1843,7 +1851,8 @@ class QSGDMaxNormMultiScaleReducer(Reducer):
 #             flat_grad = TensorBuffer(grad_in)
 #
 #         if not self._indices_queue:
-#             self._indices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
+#             set_seed(self._seed)
+#             sices_queue = torch.randperm(len(flat_grad.buffer)).split(self._K)
 #             self._indices_queue = list(self._indices_queue)
 #
 #         RandK_indices = self._indices_queue.pop().numpy()

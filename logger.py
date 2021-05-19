@@ -28,7 +28,7 @@ class Logger:
             "test_loss",
             "time",
         }
-        self._log_dict = {metric: np.zeros(self._config["num_epochs"]) for metric in metric_list}
+        self._log_dict = {metric: np.zeros([config['runs'], self._config["num_epochs"]]) for metric in metric_list}
 
     def get_log_path(self, dt=None, roundTo=30):
         if not dt:
@@ -53,14 +53,14 @@ class Logger:
 
         print("{name:20s} - {values} ({tags})".format(name=name, values=values, tags=tags))
 
-    def epoch_update(self, epoch, epoch_metrics, test_stats):
-        self._log_dict["train_top1_accuracy"][epoch] = epoch_metrics.values()["top1_accuracy"]
-        self._log_dict["train_top5_accuracy"][epoch] = epoch_metrics.values()["top5_accuracy"]
-        self._log_dict["test_top1_accuracy"][epoch] = test_stats.values()["top1_accuracy"]
-        self._log_dict["test_top5_accuracy"][epoch] = test_stats.values()["top5_accuracy"]
-        self._log_dict["train_loss"][epoch] = epoch_metrics.values()["cross_entropy_loss"]
-        self._log_dict["test_loss"][epoch] = test_stats.values()["cross_entropy_loss"]
-        self._log_dict["time"][epoch] = (datetime.datetime.now() - self._start).total_seconds()
+    def epoch_update(self, run, epoch, epoch_metrics, test_stats):
+        self._log_dict["train_top1_accuracy"][run, epoch] = epoch_metrics.values()["top1_accuracy"]
+        self._log_dict["train_top5_accuracy"][run, epoch] = epoch_metrics.values()["top5_accuracy"]
+        self._log_dict["test_top1_accuracy"][run, epoch] = test_stats.values()["top1_accuracy"]
+        self._log_dict["test_top5_accuracy"][run, epoch] = test_stats.values()["top5_accuracy"]
+        self._log_dict["train_loss"][run, epoch] = epoch_metrics.values()["cross_entropy_loss"]
+        self._log_dict["test_loss"][run, epoch] = test_stats.values()["cross_entropy_loss"]
+        self._log_dict["time"][run, epoch] = (datetime.datetime.now() - self._start).total_seconds()
 
     def save_model(self, model):
         torch.save(model.state_dict(), f"{self._log_path}/model.pt")
@@ -72,8 +72,8 @@ class Logger:
             with open(f"{self._log_path}/success.txt", "w") as file:
                 file.write(f"Training completed at {datetime.datetime.now()}\n\n")
 
-                file.write(f"Best Top 1 Accuracy: {best_accuracy['top1']}\n")
-                file.write(f"Best Top 5 Accuracy: {best_accuracy['top5']}\n\n")
+                file.write(f"Best Top 1 Accuracy: {sum(best_accuracy['top1']) / len(best_accuracy['top1'])}\n")
+                file.write(f"Best Top 5 Accuracy: {sum(best_accuracy['top5']) / len(best_accuracy['top5'])}\n\n")
 
                 file.write(f"Training parameters\n")
                 list_of_strings = [f"{key} : {value}" for key, value in self._config.items()]

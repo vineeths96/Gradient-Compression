@@ -1933,12 +1933,6 @@ class RankKReducer(Reducer):
         self._memory = []
 
     def reduce(self, grad_in, grad_out):
-        """
-        Reduce gradients between the workers in place
-        :param grad_in: dictionary
-        :param grad_out: dictionary
-        :param memory_out: dictionary
-        """
         bits_communicated = 0
 
         if not self._memory:
@@ -1948,8 +1942,6 @@ class RankKReducer(Reducer):
             for grad, mem in zip(grad_in, self._memory):
                 grad[:] += mem
 
-        # Split the tensors into rank1-ones that will be reduced un-compressed
-        # and rank > 1 tensors that are compressed
         rank1_tensors = [
             (tensor, out, mem)
             for tensor, out, mem in zip(grad_in, grad_out, self._memory)
@@ -1960,11 +1952,6 @@ class RankKReducer(Reducer):
             for tensor, out, mem in zip(grad_in, grad_out, self._memory)
             if tensor.ndimension() > 1
         ]
-
-        # We are building a rank-1 approximation of every tensor
-        # that can be interpreted as a matrix. Let the approximation be
-        # M = p q^T
-        # We are allocating consequtive memory for the p's and q's
 
         memory_is_uninitialized = self.p_memory is None
 
@@ -1981,7 +1968,6 @@ class RankKReducer(Reducer):
                 self.p_memory = torch.empty(p_total_size, device=self._device)
                 self.q_memory = torch.empty(q_total_size, device=self._device)
 
-            # Find them again and make lists of pointers
             ps = []
             qs = []
             p_idx = 0
@@ -2004,8 +1990,6 @@ class RankKReducer(Reducer):
                     # orthogonalize(q)
                     pass
                 else:
-                    # Sample a query vector q
-                    # self.set_random(q)
                     q.normal_()
 
         with self._timer("reduce.compute.p", verbosity=2):
@@ -2022,7 +2006,6 @@ class RankKReducer(Reducer):
 
             bits_communicated += self.n_bits(self.p_memory)
 
-        # Start communicating rank 1 tensors
         with self._timer("reduce.rank1.pack", verbosity=2):
             rank1_tensor_list = TensorBuffer([tensor for (tensor, _, _) in rank1_tensors])
 
@@ -2056,25 +2039,17 @@ class RankKReducer(Reducer):
 
         with self._timer("reduce.outerprod", verbosity=2):
             for p, q, (tensor, out, mem) in zip(ps, qs, high_rank_tensors):
-                # Set the output gradient
                 torch.matmul(p, q.t(), out=out[:])
                 mem[:] = tensor - out
 
         with self._timer("reduce.rank1.unpack", verbosity=2):
             tensor_reduce_op.wait()
             rank1_tensor_list.buffer /= self.n_workers
-            # rank1_tensor_list.unpack([out for (_, out, _) in rank1_tensors])
-
-            # for out in grad_out:
-            #     out[:] = 0.0
 
             for grad, out in zip(rank1_tensor_list, [out for (_, out, _) in rank1_tensors]):
                 # TODO Average or Sum
                 grad = grad.to(self._device)
                 out.add_(other=grad, alpha=1)
-
-                # print(out)
-                # exit(99)
 
         return bits_communicated
 

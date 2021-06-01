@@ -1486,24 +1486,50 @@ def plot_performance_modelling(log_path):
             throughput_dfs[models[group_ind]] = pd.DataFrame(throughput_results, index=compressor_ind_map.keys())
 
         for df_key in throughput_dfs:
-            plt.figure(figsize=[10, 7])
+            fig, axes_main = plt.subplots(figsize=[10, 7])
+            axes_inner = plt.axes([0.175, 0.3, 0.3, 0.3])
+            axes_inner_range = list(range(0, 4))
+
             throughput_df = throughput_dfs[df_key]
             num_compressors = len(throughput_df) - 1
 
             for ind, (label, values) in enumerate(throughput_df.iterrows()):
                 values = values.to_list()
-                plt.bar(
+                axes_main.bar(
                     events + (ind - num_compressors / 2) * width,
                     values,
                     width,
                     label=label,
                 )
 
-            plt.grid()
-            plt.xticks(events, GPUs)
-            plt.ylabel("Images per sec")
-            plt.title(f"Performance Modelling {df_key} {instance}")
-            plt.legend()
+            INNER_GPUs = 4
+            for ind, (label, values) in enumerate(throughput_df.iterrows()):
+                axes_inner.bar(
+                        events[:INNER_GPUs] + (ind - num_compressors / 2) * width,
+                        values[:INNER_GPUs],
+                        width,
+                        label=label,
+                    )
+            axes_inner.grid()
+            axes_main.set_xticks(events[:INNER_GPUs], GPUs[:INNER_GPUs])
+            mark_inset(
+                axes_main,
+                axes_inner,
+                loc1a=4,
+                loc1b=1,
+                loc2a=3,
+                loc2b=2,
+                fc="none",
+                ec="0.5",
+            )
+
+            axes_main.grid()
+            axes_main.set_xticks(events, GPUs)
+            axes_main.set_ylabel("Images per sec")
+            axes_main.set_xlabel("Number of GPUs")
+            axes_main.set_title(f"Performance Modelling {df_key} {instance}")
+            axes_main.legend()
+
             plt.tight_layout()
             plt.savefig(f"./plots/performance_modelling_{df_key}_{instance}.svg")
             plt.show()
@@ -1520,7 +1546,7 @@ if __name__ == "__main__":
     # plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
     # plot_time_scalability(os.path.join(root_log_path, 'scalability'))
     # plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
-    # plot_performance_modelling(os.path.join(root_log_path, "scalability"))
+    plot_performance_modelling(os.path.join(root_log_path, "scalability"))
 
     # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
     # plot_waiting_times(os.path.join(root_log_path, 'waiting_times'))

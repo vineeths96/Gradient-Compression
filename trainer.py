@@ -45,7 +45,7 @@ from seed import set_seed
 config = dict(
     runs=5,
     distributed_backend="nccl",
-    num_epochs=100,
+    num_epochs=150,
     batch_size=128,
     architecture="ResNet50",
     # architecture="VGG16",

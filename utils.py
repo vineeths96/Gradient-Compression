@@ -71,9 +71,29 @@ def plot_loss_curves(log_path):
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
             loss = log_dict[()].get("test_loss")
-            axes_main.plot(loss, label=label)
+            num_epochs = loss.shape[1]
 
-            axes_inner.plot(axes_inner_range, loss[axes_inner_range])
+            mean_loss = np.mean(loss, axis=0)
+            std_dev_loss = np.std(loss, axis=0)
+
+            axes_main.plot(np.arange(num_epochs), mean_loss, label=label)
+            axes_main.fill_between(
+                np.arange(num_epochs),
+                mean_loss - std_dev_loss,
+                mean_loss + std_dev_loss,
+                alpha=0.5,
+            )
+
+            axes_inner.plot(axes_inner_range, mean_loss[axes_inner_range])
+            axes_inner.fill_between(
+                axes_inner_range,
+                mean_loss[axes_inner_range] - std_dev_loss[axes_inner_range],
+                mean_loss[axes_inner_range] + std_dev_loss[axes_inner_range],
+                alpha=0.5,
+            )
+
+            # axes_main.plot(loss, label=label)
+            # axes_inner.plot(axes_inner_range, mean_loss[axes_inner_range])
 
         axes_inner.grid()
         mark_inset(

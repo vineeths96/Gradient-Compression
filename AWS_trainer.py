@@ -65,6 +65,7 @@ def train(local_rank):
             "RankKReducer",
         ]:
             config = dict(
+                runs=1,
                 distributed_backend="nccl",
                 num_epochs=5,
                 batch_size=128,
@@ -75,8 +76,10 @@ def train(local_rank):
                 log_verbosity=2,
                 lr=0.1,
             )
+            run=0
 
             logger = Logger(config, local_rank)
+            best_accuracy = {"top1": [0] * config['runs'], "top5": [0] * config['runs']}
 
             # torch.manual_seed(config["seed"] + local_rank)
             # np.random.seed(config["seed"] + local_rank)
@@ -109,9 +112,7 @@ def train(local_rank):
                 "QSGDMaxNormMaskReducer",
             ]:
                 config["quantization_level"] = 6
-                reducer = globals()[config["reducer"]](
-                    device, timer, quantization_level=config["quantization_level"]
-                )
+                reducer = globals()[config["reducer"]](device, timer, quantization_level=config["quantization_level"])
             elif config["reducer"] in [
                 "GlobalRandKMaxNormReducer",
                 "MaxNormGlobalRandKReducer",
@@ -123,6 +124,7 @@ def train(local_rank):
                     timer,
                     K=config["K"],
                     quantization_level=config["quantization_level"],
+                    seed=config['seed'],
                 )
             elif config["reducer"] in ["TopKReducer", "GlobalTopKReducer"]:
                 config["K"] = 10000
@@ -148,6 +150,7 @@ def train(local_rank):
                     timer,
                     lower_quantization_level=config["quantization_level"],
                     higher_quantization_level=config["higher_quantization_level"],
+                    seed=config['seed'],
                 )
             elif config["reducer"] in ["QSGDMaxNormMultiScaleReducer"]:
                 config["quantization_level"] = 6
@@ -168,7 +171,6 @@ def train(local_rank):
 
             lr = config["lr"]
             bits_communicated = 0
-            best_accuracy = {"top1": 0, "top5": 0}
 
             global_iteration_count = 0
             model = CIFAR(device, timer, config["architecture"], config["seed"] + local_rank)
@@ -233,15 +235,15 @@ def train(local_rank):
                                 tags={"split": "test"},
                             )
 
-                            if "top1_accuracy" == key and value > best_accuracy["top1"]:
-                                best_accuracy["top1"] = value
+                            if "top1_accuracy" == key and value > best_accuracy["top1"][run]:
+                                best_accuracy["top1"][run] = value
                                 logger.save_model(model)
 
-                            if "top5_accuracy" == key and value > best_accuracy["top5"]:
-                                best_accuracy["top5"] = value
+                            if "top5_accuracy" == key and value > best_accuracy["top5"][run]:
+                                best_accuracy["top5"][run] = value
 
                 if local_rank == 0:
-                    logger.epoch_update(epoch, epoch_metrics, test_stats)
+                    logger.epoch_update(run, epoch, epoch_metrics, test_stats)
 
             if local_rank == 0:
                 print(timer.summary())

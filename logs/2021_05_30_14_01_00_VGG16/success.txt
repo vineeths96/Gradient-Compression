@@ -1,0 +1,19 @@
+Training completed at 2021-05-30 16:20:54.799948
+
+Best Top 1 Accuracy: 0.93056640625
+Best Top 5 Accuracy: 1.0
+
+Training parameters
+runs : 5
+distributed_backend : nccl
+num_epochs : 150
+batch_size : 128
+architecture : VGG16
+local_steps : 1
+K : 10000
+quantization_level : 2
+reducer : GlobalRandKMaxNormReducer
+seed : 42
+log_verbosity : 2
+lr : 0.1
+Bits communicated: 2340658560

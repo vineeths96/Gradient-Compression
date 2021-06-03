@@ -1,7 +1,7 @@
-Training completed at 2021-05-30 16:32:47.522761
+Training completed at 2021-06-02 15:21:13.828972
 
-Best Top 1 Accuracy: 0.4375
-Best Top 5 Accuracy: 0.96875
+Best Top 1 Accuracy: 0.390625
+Best Top 5 Accuracy: 0.921875
 
 Training parameters
 distributed_backend : nccl

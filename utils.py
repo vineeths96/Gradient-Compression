@@ -22,10 +22,10 @@ def mark_inset(parent_axes, inset_axes, loc1a=1, loc1b=1, loc2a=2, loc2b=2, **kw
     parent_axes.add_patch(pp)
 
     p1 = BboxConnector(inset_axes.bbox, rect, loc1=loc1a, loc2=loc1b, **kwargs)
-    inset_axes.add_patch(p1)
+    # inset_axes.add_patch(p1)
     p1.set_clip_on(False)
     p2 = BboxConnector(inset_axes.bbox, rect, loc1=loc2a, loc2=loc2b, **kwargs)
-    inset_axes.add_patch(p2)
+    # inset_axes.add_patch(p2)
     p2.set_clip_on(False)
 
     return pp, p1, p2
@@ -37,7 +37,7 @@ def plot_loss_curves(log_path):
 
     for group_ind, experiment_group in enumerate(experiment_groups):
         fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([0.65, 0.25, 0.3, 0.3])
+        axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
         axes_inner_range = list(range(0, 50))
 
         experiment_group.sort()
@@ -79,7 +79,7 @@ def plot_loss_curves(log_path):
                 label = reducer
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
-            loss = log_dict[()].get("test_loss")
+            loss = log_dict[()].get("train_loss")
             num_epochs = loss.shape[1]
 
             mean_loss = np.mean(loss, axis=0)
@@ -92,6 +92,7 @@ def plot_loss_curves(log_path):
                 mean_loss + std_dev_loss,
                 alpha=0.5,
             )
+            axes_main.set_ylim(0, 2.5)
 
             axes_inner.plot(axes_inner_range, mean_loss[axes_inner_range])
             axes_inner.fill_between(
@@ -100,6 +101,7 @@ def plot_loss_curves(log_path):
                 mean_loss[axes_inner_range] + std_dev_loss[axes_inner_range],
                 alpha=0,
             )
+            axes_inner.set_ylim(0, 2.5)
 
             # axes_main.plot(loss, label=label)
             # axes_inner.plot(axes_inner_range, mean_loss[axes_inner_range])
@@ -119,7 +121,7 @@ def plot_loss_curves(log_path):
         axes_main.grid()
         axes_main.set_xlabel("Epochs")
         axes_main.set_ylabel("Loss")
-        axes_main.set_title(f"Loss curve {models[group_ind]}")
+        # axes_main.set_title(f"Loss curve {models[group_ind]}")
         axes_main.legend()
 
         plt.tight_layout()
@@ -133,7 +135,7 @@ def plot_loss_time_curves(log_path):
 
     for group_ind, experiment_group in enumerate(experiment_groups):
         fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([0.65, 0.25, 0.3, 0.3])
+        axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
         axes_inner_range = list(range(0, 50))
 
         experiment_group.sort()
@@ -175,7 +177,7 @@ def plot_loss_time_curves(log_path):
                 label = reducer
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
-            loss = log_dict[()].get("test_loss")
+            loss = log_dict[()].get("train_loss")
             time = log_dict[()].get("time")
 
             num_epochs = loss.shape[1]
@@ -194,6 +196,7 @@ def plot_loss_time_curves(log_path):
                 mean_loss + std_dev_loss,
                 alpha=0.5,
             )
+            axes_main.set_ylim(0, 2.5)
 
             axes_inner.plot(time[axes_inner_range], mean_loss[axes_inner_range])
             axes_inner.fill_between(
@@ -202,6 +205,7 @@ def plot_loss_time_curves(log_path):
                 mean_loss[axes_inner_range] + std_dev_loss[axes_inner_range],
                 alpha=0,
             )
+            axes_inner.set_ylim(0, 2.5)
 
             # axes_main.plot(time, loss, label=label)
             # axes_inner.plot(time[axes_inner_range], loss[axes_inner_range])
@@ -221,7 +225,7 @@ def plot_loss_time_curves(log_path):
         axes_main.grid()
         axes_main.set_xlabel("TIme")
         axes_main.set_ylabel("Loss")
-        axes_main.set_title(f"Loss Time curve {models[group_ind]}")
+        # axes_main.set_title(f"Loss Time curve {models[group_ind]}")
         axes_main.legend()
 
         plt.tight_layout()
@@ -277,7 +281,7 @@ def plot_top1_accuracy_curves(log_path):
                 label = reducer
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
-            top1_accuracy = log_dict[()].get("test_top1_accuracy")
+            top1_accuracy = log_dict[()].get("test_top1_accuracy") * 100
             num_epochs = top1_accuracy.shape[1]
 
             mean_top1_accuracy = np.mean(top1_accuracy, axis=0)
@@ -316,8 +320,8 @@ def plot_top1_accuracy_curves(log_path):
 
         axes_main.grid()
         axes_main.set_xlabel("Epochs")
-        axes_main.set_ylabel("Top 1 Accuracy")
-        axes_main.set_title(f"Accuracy curve {models[group_ind]}")
+        axes_main.set_ylabel("Top 1 Accuracy (%)")
+        # axes_main.set_title(f"Accuracy curve {models[group_ind]}")
         axes_main.legend()
 
         plt.tight_layout()
@@ -331,8 +335,8 @@ def plot_top5_accuracy_curves(log_path):
 
     for group_ind, experiment_group in enumerate(experiment_groups):
         fig, axes_main = plt.subplots(figsize=[10, 7])
-        axes_inner = plt.axes([0.25, 0.15, 0.3, 0.3])
-        axes_inner_range = list(range(5, 25))
+        axes_inner = plt.axes([0.65, 0.4, 0.3, 0.3])
+        axes_inner_range = list(range(0, 50))
 
         experiment_group.sort()
 
@@ -341,12 +345,13 @@ def plot_top5_accuracy_curves(log_path):
             quant_level = None
             higher_quant_level = None
             compression = None
+            rank = None
 
             with open(os.path.join(experiment, "success.txt")) as file:
                 for line in file:
                     line = line.rstrip()
                     if line.startswith("reducer"):
-                        reducer = line.split(": ")[-1]
+                        reducer = label_dict[line.split(": ")[-1]]
 
                     if line.startswith("quantization_level"):
                         quant_level = line.split(": ")[-1]
@@ -357,37 +362,62 @@ def plot_top5_accuracy_curves(log_path):
                     if line.startswith("compression"):
                         compression = line.split(": ")[-1]
 
+                    if line.startswith("rank"):
+                        rank = line.split(": ")[-1]
+
             if higher_quant_level:
-                label = " ".join([reducer, quant_level, "&", higher_quant_level, "bits"])
+                label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
             elif quant_level:
                 label = " ".join([reducer, quant_level, "bits"])
             elif compression:
                 label = " ".join([reducer, "K:", compression])
+            elif rank:
+                label = " ".join([reducer, "Rank", rank])
             else:
                 label = reducer
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
-            top5_accuracy = log_dict[()].get("test_top5_accuracy")
-            axes_main.plot(top5_accuracy, label=label)
+            top5_accuracy = log_dict[()].get("test_top5_accuracy") * 100
+            num_epochs = top5_accuracy.shape[1]
 
-            axes_inner.plot(axes_inner_range, top5_accuracy[axes_inner_range])
+            mean_top5_accuracy = np.mean(top5_accuracy, axis=0)
+            std_dev_top5_accuracy = np.std(top5_accuracy, axis=0)
+
+            axes_main.plot(np.arange(num_epochs), mean_top5_accuracy, label=label)
+            axes_main.fill_between(
+                np.arange(num_epochs),
+                mean_top5_accuracy - std_dev_top5_accuracy,
+                mean_top5_accuracy + std_dev_top5_accuracy,
+                alpha=0.5,
+            )
+
+            axes_inner.plot(axes_inner_range, mean_top5_accuracy[axes_inner_range])
+            axes_inner.fill_between(
+                axes_inner_range,
+                mean_top5_accuracy[axes_inner_range] - std_dev_top5_accuracy[axes_inner_range],
+                mean_top5_accuracy[axes_inner_range] + std_dev_top5_accuracy[axes_inner_range],
+                alpha=0,
+            )
+
+            # axes_main.plot(top5_accuracy, label=label)
+            # axes_inner.plot(axes_inner_range, top5_accuracy[axes_inner_range])
 
         axes_inner.grid()
         mark_inset(
             axes_main,
             axes_inner,
             loc1a=1,
-            loc1b=4,
+            loc1b=1,
             loc2a=2,
-            loc2b=3,
+            loc2b=2,
             fc="none",
             ec="0.5",
         )
 
-        # axes_main.grid()
+        axes_main.grid()
         axes_main.set_xlabel("Epochs")
-        axes_main.set_ylabel("Top 5 Accuracy")
-        axes_main.set_title(f"Accuracy curve {models[group_ind]}")
+        axes_main.set_ylabel("Top 5 Accuracy (%)")
+        # axes_main.set_title(f"Accuracy curve {models[group_ind]}")
         axes_main.legend()
 
         plt.tight_layout()
@@ -443,7 +473,7 @@ def plot_top1_accuracy_time_curves(log_path):
                 label = reducer
 
             log_dict = np.load(os.path.join(experiment, "log_dict.npy"), allow_pickle=True)
-            top1_accuracy = log_dict[()].get("test_top1_accuracy")
+            top1_accuracy = log_dict[()].get("test_top1_accuracy") * 100
             time = log_dict[()].get("time")
 
             num_epochs = top1_accuracy.shape[1]
@@ -487,9 +517,9 @@ def plot_top1_accuracy_time_curves(log_path):
         )
 
         axes_main.grid()
-        axes_main.set_xlabel("Time")
-        axes_main.set_ylabel("Top 1 Accuracy")
-        axes_main.set_title(f"Accuracy Time curve {models[group_ind]}")
+        axes_main.set_xlabel("Time (sec)")
+        axes_main.set_ylabel("Top 1 Accuracy (%)")
+        # axes_main.set_title(f"Accuracy Time curve {models[group_ind]}")
         axes_main.legend()
 
         plt.tight_layout()
@@ -628,7 +658,7 @@ def plot_time_breakdown(log_path):
         plt.grid()
         plt.xticks(events, time_labels)
         plt.ylabel("Average time")
-        plt.title(f"Time breakdown {models[group_ind]}")
+        # plt.title(f"Time breakdown {models[group_ind]}")
         plt.legend()
         plt.tight_layout()
         plt.savefig(f"./plots/time_breakdown_{models[group_ind]}.svg")
@@ -727,7 +757,7 @@ def plot_time_scalability(log_path):
             plt.grid()
             plt.xticks(events, GPUs)
             plt.ylabel("Time per epoch")
-            plt.title(f"Time Scalability {df_key} {instance}")
+            # plt.title(f"Time Scalability {df_key} {instance}")
             plt.legend()
             plt.tight_layout()
             plt.savefig(f"./plots/time_scalability_{df_key}_{instance}.svg")
@@ -823,7 +853,7 @@ def plot_throughput_scalability(log_path):
             plt.grid()
             plt.xticks(events, GPUs)
             plt.ylabel("Images per sec")
-            plt.title(f"Throughput Scalability {df_key} {instance}")
+            # plt.title(f"Throughput Scalability {df_key} {instance}")
             plt.legend()
             plt.tight_layout()
             plt.savefig(f"./plots/throughput_scalability_{df_key}_{instance}.svg")
@@ -1195,6 +1225,138 @@ def plot_heterogenous_AWS(log_path):
                         plt.show()
 
 
+def plot_process_times(log_path):
+    models = {"ResNet50": 1, "VGG16": 2}
+
+    instances = os.listdir(os.path.join(log_path))
+    instances.sort()
+
+    for reducer in [
+        "NoneAllReducer",
+        # "QSGDMaxNormReducer",
+        # "GlobalRandKMaxNormReducer",
+        # "QSGDMaxNormTwoScaleReducer",
+        # "GlobalRandKMaxNormTwoScaleReducer",
+    ]:
+        experiments_P2 = glob.glob(f"{log_path}/P2/*")
+        experiments_P2.sort()
+        experiments_P3 = glob.glob(f"{log_path}/P3/*")
+        experiments_P3.sort()
+
+        for experiment_P2, experiment_P3 in zip(experiments_P2, experiments_P3):
+            with open(f"{experiment_P2}/success.txt", "r") as success_file:
+                for line in success_file:
+                    if line.startswith("reducer"):
+                        compressor = line.split(":")[-1].strip()
+
+                        if compressor == reducer:
+                            model_name = experiment_P3.split("_")[-1].split(".")[0]
+
+                            plt.figure(models[model_name])
+
+                            files = glob.glob(f"{log_path}//*/*{model_name}/*.json")
+                            files.sort()
+
+                            for file in files:
+                                worker_type = file.split("/")[4]
+
+                                with open(file) as jsonfile:
+                                    json_data = json.load(jsonfile)
+
+                                batch_avg_time = json_data["batch"]["average_duration"]
+                                process_times = json_data["process_times"]
+
+                                from scipy.stats import gaussian_kde
+
+                                data = process_times
+                                density = gaussian_kde(data)
+
+                                xs = np.linspace(0, 1, 200)
+                                # density.covariance_factor = lambda: .25
+                                # density._compute_covariance()
+                                plt.plot(xs, density(xs), label=f"{compressor} - {worker_type}")
+                                # plt.title(f"{model_name}")
+
+                                # plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
+                                plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+                                # from matplotlib.ticker import FuncFormatter
+
+                                # plt.gca().get_xaxis().set_major_formatter(
+                                #     FuncFormatter(lambda x, p: format(int(x / batch_avg_time * 100), ","))
+                                # )
+
+                                plt.legend()
+                                plt.xlabel("Batch Process Time")
+                                plt.ylabel("Probability")
+                                plt.savefig(f"./plots/process_times_{model_name}_{reducer}.svg")
+                    plt.show()
+
+
+def plot_process_times_histogram(log_path):
+    models = {"ResNet50": 1, "VGG16": 2}
+
+    instances = os.listdir(os.path.join(log_path))
+    instances.sort()
+
+    for reducer in [
+        "NoneAllReducer",
+        # "QSGDMaxNormReducer",
+        # "GlobalRandKMaxNormReducer",
+        # "QSGDMaxNormTwoScaleReducer",
+        # "GlobalRandKMaxNormTwoScaleReducer",
+    ]:
+        experiments_P2 = glob.glob(f"{log_path}/P2/*")
+        experiments_P2.sort()
+        experiments_P3 = glob.glob(f"{log_path}/P3/*")
+        experiments_P3.sort()
+
+        for experiment_P2, experiment_P3 in zip(experiments_P2, experiments_P3):
+            with open(f"{experiment_P2}/success.txt", "r") as success_file:
+                for line in success_file:
+                    if line.startswith("reducer"):
+                        compressor = line.split(":")[-1].strip()
+
+                        if compressor == reducer:
+                            model_name = experiment_P3.split("_")[-1].split(".")[0]
+
+                            plt.figure(models[model_name])
+
+                            files = glob.glob(f"{log_path}//*/*{model_name}/*.json")
+                            files.sort()
+
+                            for file in files:
+                                worker_type = file.split("/")[4]
+
+                                with open(file) as jsonfile:
+                                    json_data = json.load(jsonfile)
+
+                                batch_avg_time = json_data["batch"]["average_duration"]
+                                process_times = json_data["process_times"]
+
+                                from scipy.stats import gaussian_kde
+
+                                data = process_times
+                                density = gaussian_kde(data)
+
+                                xs = np.linspace(0, 1, 200)
+                                # density.covariance_factor = lambda: .25
+                                # density._compute_covariance()
+                                plt.hist(data, 100, label=f"{compressor} - {worker_type}")
+                                # plt.title(f"{model_name}")
+
+                                plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
+                                plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+                                plt.legend()
+                                plt.xlabel("Batch Process Time")
+                                plt.ylabel("Frequency")
+                                plt.savefig(
+                                    f"./plots/process_times_histogram_{model_name}_{reducer}.svg"
+                                )
+                    plt.show()
+
+
 def plot_histogram_heterogenous_AWS(log_path):
     models = {"ResNet50": 1, "VGG16": 2}
     dynamic_batches = ["NAR", "NAR_128+8_128", "NAR_128+16_128", "NAR_128+32_128", "NAR_128+64_128", "NAR_128+128_128"]
@@ -1378,8 +1540,8 @@ def plot_performance_modelling(log_path):
 
     batch_size = 128
     inter_gpu_bw = 200 * 1024
-    gpu_cpu_bw = 5 * 1024
-    network_latency = 2.5e-3
+    gpu_cpu_bw = 11 * 1024
+    network_latency = 9e-3
     network_bw = 1 * 1024 / 8
     num_gpu_per_node = 4
 
@@ -1429,9 +1591,11 @@ def plot_performance_modelling(log_path):
                             rank = line.split(": ")[-1]
 
                     if higher_quant_level:
-                        label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
+                        # label = " ".join([reducer, f"({quant_level},{higher_quant_level})", "bits"])
+                        label = " ".join([reducer])
                     elif quant_level:
-                        label = " ".join([reducer, quant_level, "bits"])
+                        # label = " ".join([reducer, quant_level, "bits"])
+                        label = " ".join([reducer])
                     elif compression:
                         label = " ".join([reducer, "K:", compression])
                     elif rank:
@@ -1460,10 +1624,16 @@ def plot_performance_modelling(log_path):
                 elif label_dict["QSGDMaxNormTwoScaleReducer"] in label:
                     gradient_size /= 2
                 elif label_dict["GlobalRandKMaxNormReducer"] in label:
-                    gradient_size *= 1 / 2000
+                    if architecture == "ResNet50":
+                        gradient_size *= 10000 / 23520842
+                    elif architecture == "VGG16":
+                        gradient_size *= 10000 / 14728266
                     gradient_size /= 4
                 elif label_dict["GlobalRandKMaxNormTwoScaleReducer"] in label:
-                    gradient_size *= 1 / 2000
+                    if architecture == "ResNet50":
+                        gradient_size *= 10000 / 23520842
+                    elif architecture == "VGG16":
+                        gradient_size *= 10000 / 14728266
                     gradient_size /= 2
                 else:
                     raise ValueError("Method undefined")
@@ -1511,7 +1681,8 @@ def plot_performance_modelling(log_path):
                         label=label,
                     )
             axes_inner.grid()
-            axes_main.set_xticks(events[:INNER_GPUs], GPUs[:INNER_GPUs])
+            axes_inner.set_xticks(events[:INNER_GPUs])
+            axes_inner.set_xticklabels(GPUs[:INNER_GPUs])
             mark_inset(
                 axes_main,
                 axes_inner,
@@ -1524,10 +1695,11 @@ def plot_performance_modelling(log_path):
             )
 
             axes_main.grid()
-            axes_main.set_xticks(events, GPUs)
+            axes_main.set_xticks(events)
+            axes_main.set_xticklabels(GPUs)
             axes_main.set_ylabel("Images per sec")
             axes_main.set_xlabel("Number of GPUs")
-            axes_main.set_title(f"Performance Modelling {df_key} {instance}")
+            # axes_main.set_title(f"Performance Modelling {df_key} {instance}")
             axes_main.legend()
 
             plt.tight_layout()
@@ -1543,10 +1715,15 @@ if __name__ == "__main__":
     # plot_top1_accuracy_curves(os.path.join(root_log_path, "convergence"))
     # plot_top1_accuracy_time_curves(os.path.join(root_log_path, "convergence"))
     # plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
+
     # plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
     # plot_time_scalability(os.path.join(root_log_path, 'scalability'))
     # plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
-    plot_performance_modelling(os.path.join(root_log_path, "scalability"))
+
+    # plot_performance_modelling(os.path.join(root_log_path, "scalability"))
+
+    # plot_process_times(os.path.join(root_log_path, 'process_times'))
+    # plot_process_times_histogram(os.path.join(root_log_path, 'process_times'))
 
     # plot_time_per_batch_curves(os.path.join(root_log_path, "convergence"))
     # plot_waiting_times(os.path.join(root_log_path, 'waiting_times'))

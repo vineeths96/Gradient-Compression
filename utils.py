@@ -1128,7 +1128,7 @@ if __name__ == "__main__":
     plot_time_scalability(os.path.join(root_log_path, 'scalability'))
     plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
 
-    # plot_performance_modelling(os.path.join(root_log_path, "scalability"))
+    plot_performance_modelling(os.path.join(root_log_path, "scalability"))
 
     plot_process_times(os.path.join(root_log_path, 'process_times'))
     plot_process_times_histogram(os.path.join(root_log_path, 'process_times'))

@@ -13,7 +13,15 @@ from mpl_toolkits.axes_grid1.inset_locator import (
 
 
 NUM_REPEATS = 5
-label_dict = {"NoneAllReducer": "AllReduce SGD", "QSGDMaxNormReducer": "QSGD-MN", "GlobalRandKMaxNormReducer": "GRandK-MN", "QSGDMaxNormTwoScaleReducer": "QSGD-MN-TS", "GlobalRandKMaxNormTwoScaleReducer": "GRandK-MN-TS", "RankKReducer": "PowerSGD"}
+label_dict = {
+    "NoneAllReducer": "AllReduce SGD",
+    "QSGDMaxNormReducer": "QSGD-MN",
+    "GlobalRandKMaxNormReducer": "GRandK-MN",
+    "QSGDMaxNormTwoScaleReducer": "QSGD-MN-TS",
+    "GlobalRandKMaxNormTwoScaleReducer": "GRandK-MN-TS",
+    "RankKReducer": "PowerSGD",
+}
+
 
 def mark_inset(parent_axes, inset_axes, loc1a=1, loc1b=1, loc2a=2, loc2b=2, **kwargs):
     rect = TransformedBbox(inset_axes.viewLim, parent_axes.transData)
@@ -1352,9 +1360,7 @@ def plot_process_times_histogram(log_path):
                                 plt.legend()
                                 plt.xlabel("Batch Process Time")
                                 plt.ylabel("Frequency")
-                                plt.savefig(
-                                    f"./plots/process_times_histogram_{model_name}_{reducer}.svg"
-                                )
+                                plt.savefig(f"./plots/process_times_histogram_{model_name}_{reducer}.svg")
                     plt.show()
 
 
@@ -1676,11 +1682,11 @@ def plot_performance_modelling(log_path):
             INNER_GPUs = 5
             for ind, (label, values) in enumerate(throughput_df.iterrows()):
                 axes_inner.bar(
-                        events[:INNER_GPUs] + (ind - num_compressors / 2) * width,
-                        values[:INNER_GPUs],
-                        width,
-                        label=label,
-                    )
+                    events[:INNER_GPUs] + (ind - num_compressors / 2) * width,
+                    values[:INNER_GPUs],
+                    width,
+                    label=label,
+                )
             # axes_inner.grid()
             axes_inner.set_xticks(events[:INNER_GPUs])
             axes_inner.set_xticklabels(GPUs[:INNER_GPUs])
@@ -1721,7 +1727,7 @@ if __name__ == "__main__":
     # plot_time_scalability(os.path.join(root_log_path, 'scalability'))
     # plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
 
-    plot_performance_modelling(os.path.join(root_log_path, "scalability"))
+    # plot_performance_modelling(os.path.join(root_log_path, "scalability"))
 
     # plot_process_times(os.path.join(root_log_path, 'process_times'))
     # plot_process_times_histogram(os.path.join(root_log_path, 'process_times'))

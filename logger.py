@@ -28,7 +28,7 @@ class Logger:
             "test_loss",
             "time",
         }
-        self._log_dict = {metric: np.zeros([config['runs'], self._config["num_epochs"]]) for metric in metric_list}
+        self._log_dict = {metric: np.zeros([config["runs"], self._config["num_epochs"]]) for metric in metric_list}
 
     def get_log_path(self, dt=None, roundTo=30):
         if not dt:

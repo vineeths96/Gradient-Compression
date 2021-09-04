@@ -20,7 +20,6 @@ from reducer import (
     # QSGDBPReducer,
     # QSGDBPAllReducer,
     GlobalRandKMaxNormReducer,
-    MaxNormGlobalRandKReducer,
     NUQSGDModReducer,
     NUQSGDMaxNormReducer,
     TopKReducer,
@@ -78,10 +77,10 @@ def initiate_distributed():
 
 def train(local_rank):
     logger = Logger(config, local_rank)
-    best_accuracy = {"top1": [0] * config['runs'], "top5": [0] * config['runs']}
+    best_accuracy = {"top1": [0] * config["runs"], "top5": [0] * config["runs"]}
 
-    for run in range(config['runs']):
-        set_seed(config['seed'])
+    for run in range(config["runs"]):
+        set_seed(config["seed"])
         device = torch.device(f"cuda:{local_rank}")
         timer = Timer(verbosity_level=config["log_verbosity"])
 
@@ -110,14 +109,13 @@ def train(local_rank):
             reducer = globals()[config["reducer"]](device, timer, quantization_level=config["quantization_level"])
         elif config["reducer"] in [
             "GlobalRandKMaxNormReducer",
-            "MaxNormGlobalRandKReducer",
         ]:
             reducer = globals()[config["reducer"]](
                 device,
                 timer,
                 K=config["K"],
                 quantization_level=config["quantization_level"],
-                seed=config['seed'],
+                seed=config["seed"],
             )
         elif config["reducer"] in ["TopKReducer", "GlobalTopKReducer"]:
             reducer = globals()[config["reducer"]](device, timer, K=config["K"])
@@ -136,7 +134,7 @@ def train(local_rank):
                 timer,
                 lower_quantization_level=config["quantization_level"],
                 higher_quantization_level=config["higher_quantization_level"],
-                seed=config['seed'],
+                seed=config["seed"],
             )
         elif config["reducer"] in ["QSGDMaxNormMultiScaleReducer"]:
             reducer = globals()[config["reducer"]](
@@ -165,7 +163,7 @@ def train(local_rank):
         optimizer = optim.SGD(params=model.parameters, lr=lr, momentum=0.9, weight_decay=5e-4, nesterov=True)
 
         # scheduler = optim.lr_scheduler.StepLR(optimizer=optimizer, step_size=50, gamma=0.1)
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["num_epochs"], eta_min=0)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=config["num_epochs"], eta_min=0)
 
         for epoch in range(config["num_epochs"]):
             if local_rank == 0:

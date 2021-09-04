@@ -3,6 +3,9 @@
 from setuptools import setup
 from torch.utils.cpp_extension import CppExtension, BuildExtension
 
+"""
+Greedily packs varying number of multiple coordinates into condensed tensors.
+"""
 
 setup(
     name="bitpacking",

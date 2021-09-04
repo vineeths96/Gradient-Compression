@@ -1,9 +1,10 @@
 import torch
 import struct
+import numpy as np
 
+# Following imports require the installation of custom PyTorch extensions.
 # import bitpacking
 # import gpu_bitpacking
-import numpy as np
 
 
 class NoneCompressor:
@@ -320,6 +321,9 @@ class QSGDMaxNormCompressor:
         return norm / s * sign_xi_array
 
 
+"""
+QSGDBPCompressor and QSGDBPAllReduceCompressor requires installation of custom PyTorch extensions
+"""
 # class QSGDBPCompressor:
 #     """
 #     Modified QSGD Compressor without Elias coding.
@@ -415,46 +419,6 @@ class QSGDMaxNormCompressor:
 class GlobalRandKMaxNormCompressor:
     """
     RandK compressor with max norm.
-    Normalizing with max norm among thw workers.
-    Code: sign array * xi array.
-    """
-
-    def __init__(self, device, quantization_level=8):
-        self._device = device
-        self._quantization_level = quantization_level
-
-        if quantization_level < 8:
-            self._dtype = torch.int8
-        else:
-            self._dtype = torch.int32
-
-    def compress(self, norm, tensor):
-        s = (1 << self._quantization_level) - 1
-
-        sign_array = torch.sign(tensor).to(dtype=torch.int8)
-
-        l_array = torch.abs(tensor) / norm * s
-        l_array_floored = l_array.to(dtype=torch.int32)
-        prob_array = l_array - l_array_floored
-        prob_array = torch.clamp(prob_array, min=0.0, max=1.0)
-
-        mask = torch.bernoulli(prob_array)
-        xi_array = l_array_floored + mask
-        xi_array = xi_array.to(dtype=torch.int32)
-
-        sign_xi_array = (sign_array * xi_array).to(dtype=self._dtype, device=self._device)
-
-        return sign_xi_array
-
-    def decompress(self, norm, sign_xi_array):
-        s = (1 << self._quantization_level) - 1
-
-        return norm / s * sign_xi_array
-
-
-class MaxNormGlobalRandKCompressor:
-    """
-    Compressor with max norm.
     Normalizing with max norm among thw workers.
     Code: sign array * xi array.
     """
@@ -833,8 +797,7 @@ class QSGDMaxNormMultiScaleCompressor:
             self._cache[ind] = sign_xi_array
 
     def compress_mask(self, norm, tensor):
-        # TODO: Magic number 8
-        MAX_VAL = 2 ** (7 - 1) - 1
+        MAX_VAL = 2 ** self._quantization_levels[0] - 1
         self.compress_cache(norm, tensor)
 
         resolution_mask = torch.zeros_like(tensor, dtype=torch.int8)

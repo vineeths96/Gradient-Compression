@@ -86,27 +86,6 @@ class CIFAR:
 
         self._epoch += 1
 
-    def auxiliary_train_dataloader(self, batch_size=32):
-        train_sampler = DistributedSampler(dataset=self._train_set)
-        train_sampler.set_epoch(self._epoch)
-
-        train_loader = DataLoader(
-            dataset=self._train_set,
-            batch_size=batch_size,
-            sampler=train_sampler,
-            pin_memory=True,
-            drop_last=True,
-            num_workers=dist.get_world_size(),
-        )
-
-        self.len_aux_train_loader = len(train_loader)
-
-        for imgs, labels in train_loader:
-            imgs = imgs.to(self._device)
-            labels = labels.to(self._device)
-
-            yield imgs, labels
-
     def test_dataloader(self, batch_size=32):
         test_sampler = DistributedSampler(dataset=self._test_set)
 
@@ -158,23 +137,6 @@ class CIFAR:
 
         return loss.detach(), grad_vec, metrics
 
-    def auxiliary_batch_loss_with_gradients(self, batch):
-        imgs, labels = batch
-
-        with self._timer("batch.auxiliary.forward", float(self._epoch)):
-            prediction = self._model(imgs)
-            loss = self._criterion(prediction, labels)
-
-        with self._timer("batch.auxiliary.backward", float(self._epoch)):
-            loss.backward()
-
-        with self._timer("batch.auxiliary.evaluate", float(self._epoch)):
-            metrics = self.evaluate_predictions(prediction, labels)
-
-        grad_vec = [parameter.grad for parameter in self._model.parameters()]
-
-        return loss.detach(), grad_vec, metrics
-
     def evaluate_predictions(self, pred_labels, true_labels):
         def accuracy(output, target, topk=(1,)):
             maxk = max(topk)
@@ -212,7 +174,6 @@ class CIFAR:
         test_model.eval()
 
         for i, batch in enumerate(test_loader):
-            # print("Test ", i/self.len_test_loader)
             with torch.no_grad():
                 imgs, labels = batch
                 prediction = test_model(imgs)
@@ -220,7 +181,6 @@ class CIFAR:
 
             mean_metrics.add(metrics)
 
-        # print("Test Acc", mean_metrics.values()["top1_accuracy"])
         mean_metrics.reduce()
         test_model.train()
 

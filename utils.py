@@ -812,136 +812,6 @@ def plot_throughput_scalability(log_path):
             plt.show()
 
 
-def plot_process_times(log_path):
-    models = {"ResNet50": 1, "VGG16": 2}
-
-    instances = os.listdir(os.path.join(log_path))
-    instances.sort()
-
-    for reducer in [
-        "NoneAllReducer",
-        # "QSGDMaxNormReducer",
-        # "GlobalRandKMaxNormReducer",
-        # "QSGDMaxNormTwoScaleReducer",
-        # "GlobalRandKMaxNormTwoScaleReducer",
-    ]:
-        experiments_P2 = glob.glob(f"{log_path}/P2/*")
-        experiments_P2.sort()
-        experiments_P3 = glob.glob(f"{log_path}/P3/*")
-        experiments_P3.sort()
-
-        for experiment_P2, experiment_P3 in zip(experiments_P2, experiments_P3):
-            with open(f"{experiment_P2}/success.txt", "r") as success_file:
-                for line in success_file:
-                    if line.startswith("reducer"):
-                        compressor = line.split(":")[-1].strip()
-
-                        if compressor == reducer:
-                            model_name = experiment_P3.split("_")[-1].split(".")[0]
-
-                            plt.figure(models[model_name])
-
-                            files = glob.glob(f"{log_path}//*/*{model_name}/*.json")
-                            files.sort()
-
-                            for file in files:
-                                worker_type = file.split("/")[4]
-
-                                with open(file) as jsonfile:
-                                    json_data = json.load(jsonfile)
-
-                                batch_avg_time = json_data["batch"]["average_duration"]
-                                process_times = json_data["process_times"]
-
-                                from scipy.stats import gaussian_kde
-
-                                data = process_times
-                                density = gaussian_kde(data)
-
-                                xs = np.linspace(0, 1, 200)
-                                # density.covariance_factor = lambda: .25
-                                # density._compute_covariance()
-                                plt.plot(xs, density(xs), label=f"{compressor} - {worker_type}")
-                                # plt.title(f"{model_name}")
-
-                                # plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
-                                plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-
-                                # from matplotlib.ticker import FuncFormatter
-
-                                # plt.gca().get_xaxis().set_major_formatter(
-                                #     FuncFormatter(lambda x, p: format(int(x / batch_avg_time * 100), ","))
-                                # )
-
-                                plt.legend()
-                                plt.xlabel("Batch Process Time")
-                                plt.ylabel("Probability")
-                                plt.savefig(f"./plots/process_times_{model_name}_{reducer}.svg")
-                    plt.show()
-
-
-def plot_process_times_histogram(log_path):
-    models = {"ResNet50": 1, "VGG16": 2}
-
-    instances = os.listdir(os.path.join(log_path))
-    instances.sort()
-
-    for reducer in [
-        "NoneAllReducer",
-        # "QSGDMaxNormReducer",
-        # "GlobalRandKMaxNormReducer",
-        # "QSGDMaxNormTwoScaleReducer",
-        # "GlobalRandKMaxNormTwoScaleReducer",
-    ]:
-        experiments_P2 = glob.glob(f"{log_path}/P2/*")
-        experiments_P2.sort()
-        experiments_P3 = glob.glob(f"{log_path}/P3/*")
-        experiments_P3.sort()
-
-        for experiment_P2, experiment_P3 in zip(experiments_P2, experiments_P3):
-            with open(f"{experiment_P2}/success.txt", "r") as success_file:
-                for line in success_file:
-                    if line.startswith("reducer"):
-                        compressor = line.split(":")[-1].strip()
-
-                        if compressor == reducer:
-                            model_name = experiment_P3.split("_")[-1].split(".")[0]
-
-                            plt.figure(models[model_name])
-
-                            files = glob.glob(f"{log_path}//*/*{model_name}/*.json")
-                            files.sort()
-
-                            for file in files:
-                                worker_type = file.split("/")[4]
-
-                                with open(file) as jsonfile:
-                                    json_data = json.load(jsonfile)
-
-                                batch_avg_time = json_data["batch"]["average_duration"]
-                                process_times = json_data["process_times"]
-
-                                from scipy.stats import gaussian_kde
-
-                                data = process_times
-                                density = gaussian_kde(data)
-
-                                xs = np.linspace(0, 1, 200)
-                                # density.covariance_factor = lambda: .25
-                                # density._compute_covariance()
-                                plt.hist(data, 100, label=f"{compressor} - {worker_type}")
-                                # plt.title(f"{model_name}")
-
-                                plt.ticklabel_format(axis="x", style="sci", scilimits=(0, 0))
-                                plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
-
-                                plt.legend()
-                                plt.xlabel("Batch Process Time")
-                                plt.ylabel("Frequency")
-                                plt.savefig(f"./plots/process_times_histogram_{model_name}_{reducer}.svg")
-                    plt.show()
-
-
 def plot_performance_modelling(log_path):
     models = ["ResNet50", "VGG16"]
     instances = ["P3"]  # , "P3 Multi Node"]
@@ -1125,10 +995,7 @@ if __name__ == "__main__":
     plot_top5_accuracy_curves(os.path.join(root_log_path, "convergence"))
 
     plot_time_breakdown(os.path.join(root_log_path, "time_breakdown"))
-    plot_time_scalability(os.path.join(root_log_path, 'scalability'))
-    plot_throughput_scalability(os.path.join(root_log_path, 'scalability'))
+    plot_time_scalability(os.path.join(root_log_path, "scalability"))
+    plot_throughput_scalability(os.path.join(root_log_path, "scalability"))
 
     plot_performance_modelling(os.path.join(root_log_path, "scalability"))
-
-    plot_process_times(os.path.join(root_log_path, 'process_times'))
-    plot_process_times_histogram(os.path.join(root_log_path, 'process_times'))

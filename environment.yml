@@ -1,4 +1,4 @@
-name: QSGD-PT
+name: Gradient_Compression
 channels:
   - defaults
 dependencies:
@@ -127,5 +127,4 @@ dependencies:
     - webencodings==0.5.1
     - werkzeug==1.0.1
     - zipp==3.4.1
-prefix: /home/vineeth/anaconda3/envs/QSGD-PT
 

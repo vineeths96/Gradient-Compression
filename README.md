@@ -61,14 +61,20 @@ The dataset used in this project (CIFAR 10) will be automatically downloaded and
 
 ### Instructions to run
 
-The `trainer.py` requires arguments to be passed (check default values in [code)](src/training_script.py):
+The training of the models can be performed on a distributed cluster with multiple machines and multiple worker GPUs. We make use of `torch.distributed.launch` to launch the distributed training. More information is available [here](https://pytorch.org/tutorials/beginner/dist_overview.html).
 
-To train the transformer model without any compression,
+To launch distributed training on a single machine with multiple workers (GPUs), 
+
+```shell
+python -m torch.distributed.launch --nproc_per_node=<num_gpus> trainer.py --local_world_size=<num_gpus> 
+```
+
+ To launch distributed training on multiple machine with multiple workers (GPUs), 
 
 ```sh
 export NCCL_SOCKET_IFNAME=ens3
 
-python -m torch.distributed.launch --nproc_per_node=1 --nnodes=2 --node_rank=0 --master_addr="172.31.43.166" --master_port=1234 trainer.py --local_world_size=1 
+python -m torch.distributed.launch --nproc_per_node=<num_gpus> --nnodes=<num_machines> --node_rank=<node_rank> --master_addr=<master_address> --master_port=<master_port> trainer.py --local_world_size=<num_gpus>
 ```
 
 
